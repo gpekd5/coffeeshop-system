@@ -7,6 +7,29 @@
 - Issue 범위를 벗어나는 기능은 임의로 추가하지 않습니다.
 - 문서와 구현이 충돌하면 임의로 결정하지 말고 PR에 근거와 영향을 남깁니다.
 
+## Required reading order
+
+작업을 시작하기 전에 다음 순서로 문서를 확인합니다.
+
+1. 작업 대상 GitHub Issue
+2. 저장소 루트의 `AGENTS.md`
+3. `docs/PROJECT_CONTEXT.md`
+4. `docs/BUSINESS_RULES.md`
+5. `docs/API_SPEC.md`
+6. `docs/ERD.md`
+7. `docs/ARCHITECTURE.md`
+8. 작업과 관련된 `docs/adr/*.md`
+9. `docs/CODE_CONVENTION.md`
+10. `docs/TEST_STRATEGY.md`
+
+추가 확인 규칙:
+
+- 화면 흐름이나 사용자 동선이 필요한 작업은 `docs/WIREFRAME.md`도 확인합니다.
+- Issue 본문의 `참고 문서`에 지정된 파일은 위 목록과 관계없이 반드시 읽습니다.
+- 전체 문서를 무조건 다시 구현하지 말고, 현재 Issue 범위에 필요한 규칙만 적용합니다.
+- 문서 간 내용이 충돌하면 우선순위를 임의로 정하지 말고 PR에 충돌 내용을 기록합니다.
+- ADR이 존재하는 기술 결정은 일반적인 구현 관례보다 해당 ADR을 우선합니다.
+
 ## Implementation guidelines
 
 - Entity를 API 요청 또는 응답으로 직접 사용하지 않습니다.
