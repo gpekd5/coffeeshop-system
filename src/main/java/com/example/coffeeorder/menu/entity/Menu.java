@@ -156,6 +156,10 @@ public class Menu extends BaseEntity {
         return deletedAt != null;
     }
 
+    public boolean isOnSale() {
+        return status == MenuStatus.ON_SALE && !isDeleted();
+    }
+
     public Long getId() {
         return id;
     }
