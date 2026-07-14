@@ -17,3 +17,7 @@ server:
 
 app:
   time-zone: Asia/Seoul
+  jwt:
+    secret: ${APP_JWT_SECRET:local-development-jwt-secret-key-please-change}
+    access-token-expires-in-seconds: ${APP_JWT_ACCESS_TOKEN_EXPIRES_IN_SECONDS:1800}
+    refresh-token-expires-in-seconds: ${APP_JWT_REFRESH_TOKEN_EXPIRES_IN_SECONDS:1209600}

@@ -117,6 +117,18 @@ public class Member extends BaseEntity {
         return status;
     }
 
+    public boolean isActive() {
+        return status == MemberStatus.ACTIVE;
+    }
+
+    public boolean isInactive() {
+        return status == MemberStatus.INACTIVE;
+    }
+
+    public boolean isWithdrawn() {
+        return status == MemberStatus.WITHDRAWN;
+    }
+
     public LocalDateTime getDeletedAt() {
         return deletedAt;
     }
