@@ -481,6 +481,7 @@ FAILED
 | `401` | `INVALID_REFRESH_TOKEN` | 유효하지 않은 Refresh Token |
 | `401` | `EXPIRED_REFRESH_TOKEN` | 만료된 Refresh Token |
 | `401` | `REFRESH_TOKEN_NOT_FOUND` | Redis에 존재하지 않는 Refresh Token |
+| `403` | `MEMBER_WITHDRAWN` | 탈퇴한 회원 |
 
 ---
 
@@ -2061,6 +2062,7 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 | `403` | `MEMBER_INACTIVE` | 비활성화된 회원 |
 | `403` | `MEMBER_WITHDRAWN` | 탈퇴한 회원 |
 | `404` | `MEMBER_NOT_FOUND` | 회원을 찾을 수 없음 |
+| `409` | `MEMBER_ALREADY_WITHDRAWN` | 이미 탈퇴한 회원 |
 | `409` | `DUPLICATED_EMAIL` | 이미 사용 중인 이메일 |
 
 ---

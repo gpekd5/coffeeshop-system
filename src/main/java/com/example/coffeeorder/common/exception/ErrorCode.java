@@ -64,6 +64,11 @@ public enum ErrorCode {
             "MEMBER_WITHDRAWN",
             "탈퇴한 회원입니다."
     ),
+    MEMBER_ALREADY_WITHDRAWN(
+            HttpStatus.CONFLICT,
+            "MEMBER_ALREADY_WITHDRAWN",
+            "이미 탈퇴한 회원입니다."
+    ),
     MEMBER_NOT_FOUND(
             HttpStatus.NOT_FOUND,
             "MEMBER_NOT_FOUND",

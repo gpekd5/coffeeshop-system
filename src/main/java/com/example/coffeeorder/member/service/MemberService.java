@@ -1,10 +1,13 @@
 package com.example.coffeeorder.member.service;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Locale;
 
 import com.example.coffeeorder.common.exception.BusinessException;
 import com.example.coffeeorder.common.exception.ErrorCode;
 import com.example.coffeeorder.member.dto.request.SignupRequest;
+import com.example.coffeeorder.member.dto.response.MyInfoResponse;
 import com.example.coffeeorder.member.dto.response.SignupResponse;
 import com.example.coffeeorder.member.entity.Member;
 import com.example.coffeeorder.member.repository.MemberRepository;
@@ -21,15 +24,18 @@ public class MemberService {
     private final MemberRepository memberRepository;
     private final PointRepository pointRepository;
     private final PasswordEncoder passwordEncoder;
+    private final Clock clock;
 
     public MemberService(
             MemberRepository memberRepository,
             PointRepository pointRepository,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            Clock clock
     ) {
         this.memberRepository = memberRepository;
         this.pointRepository = pointRepository;
         this.passwordEncoder = passwordEncoder;
+        this.clock = clock;
     }
 
     @Transactional
@@ -54,6 +60,20 @@ public class MemberService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public MyInfoResponse getMyInfo(Long memberId) {
+        Member member = findActiveMember(memberId);
+
+        return MyInfoResponse.from(member);
+    }
+
+    @Transactional
+    public void withdraw(Long memberId) {
+        Member member = findMember(memberId);
+
+        member.withdraw(LocalDateTime.now(clock));
+    }
+
     private String normalizeEmail(String email) {
         return email.trim()
                 .toLowerCase(Locale.ROOT);
@@ -72,4 +92,22 @@ public class MemberService {
             throw new BusinessException(ErrorCode.DUPLICATED_EMAIL);
         }
     }
+
+    private Member findActiveMember(Long memberId) {
+        Member member = findMember(memberId);
+
+        if (!member.isActive()) {
+            throw new BusinessException(ErrorCode.MEMBER_NOT_FOUND);
+        }
+
+        return member;
+    }
+
+    private Member findMember(Long memberId) {
+        return memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.MEMBER_NOT_FOUND
+                ));
+    }
+
 }
