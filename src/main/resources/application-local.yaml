@@ -1,8 +1,8 @@
 spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/coffee_order?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
-    username: ${SPRING_DATASOURCE_USERNAME:root}
-    password: ${SPRING_DATASOURCE_PASSWORD:12345678}
+    username: ${SPRING_DATASOURCE_USERNAME:coffee}
+    password: ${SPRING_DATASOURCE_PASSWORD:coffee}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:

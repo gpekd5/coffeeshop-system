@@ -1,5 +1,8 @@
 package com.example.coffeeorder.auth.controller;
 
+import com.example.coffeeorder.auth.dto.request.LoginRequest;
+import com.example.coffeeorder.auth.dto.response.LoginResponse;
+import com.example.coffeeorder.auth.service.AuthService;
 import com.example.coffeeorder.common.response.ApiResponse;
 import com.example.coffeeorder.member.dto.request.SignupRequest;
 import com.example.coffeeorder.member.dto.response.SignupResponse;
@@ -16,9 +19,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
 
+    private final AuthService authService;
     private final MemberService memberService;
 
-    public AuthController(MemberService memberService) {
+    public AuthController(
+            AuthService authService,
+            MemberService memberService
+    ) {
+        this.authService = authService;
         this.memberService = memberService;
     }
 
@@ -35,5 +43,19 @@ public class AuthController {
                                 response
                         )
                 );
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<LoginResponse>> login(
+            @Valid @RequestBody LoginRequest request
+    ) {
+        LoginResponse response = authService.login(request);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "로그인에 성공했습니다.",
+                        response
+                )
+        );
     }
 }
