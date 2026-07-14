@@ -1,6 +1,8 @@
 package com.example.coffeeorder.point.entity;
 
 import com.example.coffeeorder.common.entity.BaseEntity;
+import com.example.coffeeorder.common.exception.BusinessException;
+import com.example.coffeeorder.common.exception.ErrorCode;
 import com.example.coffeeorder.member.entity.Member;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -73,11 +75,44 @@ public class Point extends BaseEntity {
         return member;
     }
 
+    public Long getMemberId() {
+        return member.getId();
+    }
+
     public long getBalance() {
         return balance;
     }
 
     public Long getVersion() {
         return version;
+    }
+
+    public void charge(long amount) {
+        validatePositiveAmount(amount);
+
+        try {
+            this.balance = Math.addExact(
+                    this.balance,
+                    amount
+            );
+        } catch (ArithmeticException exception) {
+            throw new BusinessException(ErrorCode.POINT_CHARGE_LIMIT_EXCEEDED);
+        }
+    }
+
+    public void use(long amount) {
+        validatePositiveAmount(amount);
+
+        if (balance < amount) {
+            throw new BusinessException(ErrorCode.POINT_NOT_ENOUGH);
+        }
+
+        this.balance -= amount;
+    }
+
+    private void validatePositiveAmount(long amount) {
+        if (amount <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_POINT_AMOUNT);
+        }
     }
 }
