@@ -8,14 +8,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -46,7 +49,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void 검증_오류를_공통_검증_응답으로_반환한다() throws Exception {
+    void 요청_본문_검증_오류를_공통_검증_응답으로_반환한다() throws Exception {
         mockMvc.perform(
                         post("/validation")
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -65,6 +68,39 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.data.errors[0].message").value("올바른 이메일 형식이어야 합니다."))
                 .andExpect(jsonPath("$.data.errors[1].field").value("name"))
                 .andExpect(jsonPath("$.data.errors[1].message").value("이름은 필수입니다."));
+    }
+
+    @Test
+    void 요청_파라미터_검증_오류를_공통_검증_응답으로_반환한다() throws Exception {
+        mockMvc.perform(get("/param-validation").param("size", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"))
+                .andExpect(jsonPath("$.message").value("입력값이 올바르지 않습니다."))
+                .andExpect(jsonPath("$.data.errors[0].field").value("size"))
+                .andExpect(jsonPath("$.data.errors[0].message").value("size는 1 이상이어야 합니다."));
+    }
+
+    @Test
+    void 경로_변수_검증_오류를_공통_검증_응답으로_반환한다() throws Exception {
+        mockMvc.perform(get("/path-validation/0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"))
+                .andExpect(jsonPath("$.message").value("입력값이 올바르지 않습니다."))
+                .andExpect(jsonPath("$.data.errors[0].field").value("menuId"))
+                .andExpect(jsonPath("$.data.errors[0].message").value("menuId는 1 이상이어야 합니다."));
+    }
+
+    @Test
+    void 필수_요청_파라미터_누락을_공통_검증_응답으로_반환한다() throws Exception {
+        mockMvc.perform(get("/missing-param"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"))
+                .andExpect(jsonPath("$.message").value("입력값이 올바르지 않습니다."))
+                .andExpect(jsonPath("$.data.errors[0].field").value("keyword"))
+                .andExpect(jsonPath("$.data.errors[0].message").value("필수 요청 파라미터입니다."));
     }
 
     @Test
@@ -88,6 +124,34 @@ class GlobalExceptionHandlerTest {
         @PostMapping("/validation")
         void validation(
                 @Valid @RequestBody TestRequest request
+        ) {
+        }
+
+        @GetMapping("/param-validation")
+        void paramValidation(
+                @RequestParam("size")
+                @Min(
+                        value = 1,
+                        message = "size는 1 이상이어야 합니다."
+                )
+                int size
+        ) {
+        }
+
+        @GetMapping("/path-validation/{menuId}")
+        void pathValidation(
+                @PathVariable("menuId")
+                @Min(
+                        value = 1,
+                        message = "menuId는 1 이상이어야 합니다."
+                )
+                long menuId
+        ) {
+        }
+
+        @GetMapping("/missing-param")
+        void missingParam(
+                @RequestParam("keyword") String keyword
         ) {
         }
 

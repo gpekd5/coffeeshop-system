@@ -64,17 +64,67 @@ public class GlobalExceptionHandler {
                 );
     }
 
-    @ExceptionHandler({
-            ConstraintViolationException.class,
-            HandlerMethodValidationException.class,
-            MissingServletRequestParameterException.class,
-            HttpMessageNotReadableException.class
-    })
+    @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleInvalidRequestException() {
         ErrorCode errorCode = ErrorCode.INVALID_INPUT;
 
         return ResponseEntity.status(errorCode.getStatus())
                 .body(ApiResponse.error(errorCode));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<ValidationErrorResponse>> handleConstraintViolationException(
+            ConstraintViolationException exception
+    ) {
+        ErrorCode errorCode = ErrorCode.INVALID_INPUT;
+        ValidationErrorResponse response =
+                ValidationErrorResponse.from(exception.getConstraintViolations());
+
+        return ResponseEntity.status(errorCode.getStatus())
+                .body(
+                        ApiResponse.error(
+                                errorCode,
+                                response
+                        )
+                );
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ApiResponse<ValidationErrorResponse>> handleHandlerMethodValidationException(
+            HandlerMethodValidationException exception
+    ) {
+        ErrorCode errorCode = ErrorCode.INVALID_INPUT;
+        ValidationErrorResponse response =
+                ValidationErrorResponse.fromParameterValidationResults(
+                        exception.getParameterValidationResults()
+                );
+
+        return ResponseEntity.status(errorCode.getStatus())
+                .body(
+                        ApiResponse.error(
+                                errorCode,
+                                response
+                        )
+                );
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<ValidationErrorResponse>> handleMissingServletRequestParameterException(
+            MissingServletRequestParameterException exception
+    ) {
+        ErrorCode errorCode = ErrorCode.INVALID_INPUT;
+        ValidationErrorResponse response = ValidationErrorResponse.of(
+                exception.getParameterName(),
+                "필수 요청 파라미터입니다."
+        );
+
+        return ResponseEntity.status(errorCode.getStatus())
+                .body(
+                        ApiResponse.error(
+                                errorCode,
+                                response
+                        )
+                );
     }
 
     @ExceptionHandler(Exception.class)
