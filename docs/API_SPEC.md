@@ -847,6 +847,7 @@ GET /api/v1/menus?category=COFFEE&status=ON_SALE&page=0&size=20&sort=createdAt,d
 | `401` | `UNAUTHORIZED` | 인증되지 않은 사용자 |
 | `403` | `FORBIDDEN` | 관리자 권한 없음 |
 | `404` | `MENU_NOT_FOUND` | 메뉴를 찾을 수 없음 |
+| `409` | `MENU_ALREADY_DELETED` | 이미 삭제된 메뉴 |
 
 ---
 

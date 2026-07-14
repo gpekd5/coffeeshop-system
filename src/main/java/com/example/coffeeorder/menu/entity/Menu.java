@@ -18,6 +18,9 @@ import jakarta.persistence.Table;
 @Table(name = "menus")
 public class Menu extends BaseEntity {
 
+    private static final int MAX_NAME_LENGTH = 100;
+    private static final int MAX_DESCRIPTION_LENGTH = 500;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -62,6 +65,7 @@ public class Menu extends BaseEntity {
             MenuStatus status
     ) {
         validateName(name);
+        validateDescription(description);
         validateCategory(category);
         validatePrice(price);
         validateStatus(status);
@@ -112,6 +116,42 @@ public class Menu extends BaseEntity {
         this.deletedAt = deletedAt;
     }
 
+    public void update(
+            String name,
+            String description,
+            MenuCategory category,
+            Long price
+    ) {
+        validateNotDeleted();
+
+        if (name != null) {
+            validateName(name);
+            this.name = name;
+        }
+
+        if (description != null) {
+            validateDescription(description);
+            this.description = description;
+        }
+
+        if (category != null) {
+            validateCategory(category);
+            this.category = category;
+        }
+
+        if (price != null) {
+            validatePrice(price);
+            this.price = price;
+        }
+    }
+
+    public void changeStatus(MenuStatus status) {
+        validateNotDeleted();
+        validateStatus(status);
+
+        this.status = status;
+    }
+
     public boolean isDeleted() {
         return deletedAt != null;
     }
@@ -145,7 +185,13 @@ public class Menu extends BaseEntity {
     }
 
     private static void validateName(String name) {
-        if (name == null || name.isBlank()) {
+        if (name == null || name.isBlank() || name.length() > MAX_NAME_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+    }
+
+    private static void validateDescription(String description) {
+        if (description != null && description.length() > MAX_DESCRIPTION_LENGTH) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);
         }
     }
@@ -165,6 +211,12 @@ public class Menu extends BaseEntity {
     private static void validateStatus(MenuStatus status) {
         if (status == null) {
             throw new BusinessException(ErrorCode.INVALID_MENU_STATUS);
+        }
+    }
+
+    private void validateNotDeleted() {
+        if (isDeleted()) {
+            throw new BusinessException(ErrorCode.MENU_ALREADY_DELETED);
         }
     }
 }
