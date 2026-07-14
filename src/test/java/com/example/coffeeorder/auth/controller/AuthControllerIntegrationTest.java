@@ -6,9 +6,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import com.example.coffeeorder.common.response.ApiResponse;
 import com.example.coffeeorder.common.security.AuthMember;
@@ -313,6 +320,61 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("REFRESH_TOKEN_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Redis에 Refresh Token이 존재하지 않습니다."));
+    }
+
+    @Test
+    void 동일_RefreshToken_동시_재발급은_하나만_성공한다() throws Exception {
+        회원가입을_요청한다(
+                "test@example.com",
+                "Password123!",
+                "홍길동"
+        );
+        MvcResult loginResult = 로그인_결과를_요청한다(
+                "test@example.com",
+                "Password123!"
+        );
+        String refreshToken = tokenDataFrom(loginResult).refreshToken();
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executorService = Executors.newFixedThreadPool(2);
+
+        try {
+            List<Future<Integer>> futures = List.of(
+                    executorService.submit(() -> 토큰_재발급_상태코드(
+                            refreshToken,
+                            ready,
+                            start
+                    )),
+                    executorService.submit(() -> 토큰_재발급_상태코드(
+                            refreshToken,
+                            ready,
+                            start
+                    ))
+            );
+
+            assertThat(ready.await(
+                    1,
+                    TimeUnit.SECONDS
+            )).isTrue();
+            start.countDown();
+
+            List<Integer> statusCodes = new ArrayList<>();
+
+            for (Future<Integer> future : futures) {
+                statusCodes.add(future.get(
+                        5,
+                        TimeUnit.SECONDS
+                ));
+            }
+
+            assertThat(statusCodes)
+                    .containsExactlyInAnyOrder(
+                            200,
+                            401
+                    );
+        } finally {
+            executorService.shutdownNow();
+        }
     }
 
     @Test
@@ -665,6 +727,31 @@ class AuthControllerIntegrationTest {
         memberRepository.saveAndFlush(member);
     }
 
+    private int 토큰_재발급_상태코드(
+            String refreshToken,
+            CountDownLatch ready,
+            CountDownLatch start
+    ) throws Exception {
+        ready.countDown();
+        start.await(
+                1,
+                TimeUnit.SECONDS
+        );
+
+        return mockMvc.perform(
+                        post("/api/v1/auth/reissue")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "refreshToken": "%s"
+                                        }
+                                        """.formatted(refreshToken))
+                )
+                .andReturn()
+                .getResponse()
+                .getStatus();
+    }
+
     private String accessTokenFrom(MvcResult result) throws Exception {
         return tokenDataFrom(result).accessToken();
     }
@@ -719,7 +806,7 @@ class AuthControllerIntegrationTest {
         }
 
         @Override
-        public boolean matchesRefreshToken(
+        public synchronized boolean matchesRefreshToken(
                 Long memberId,
                 String refreshToken
         ) {
@@ -727,18 +814,44 @@ class AuthControllerIntegrationTest {
         }
 
         @Override
-        public void deleteRefreshToken(Long memberId) {
+        public synchronized boolean rotateRefreshToken(
+                Long memberId,
+                String currentRefreshToken,
+                String newRefreshToken,
+                long ttlSeconds
+        ) {
+            if (ttlSeconds <= 0) {
+                return false;
+            }
+
+            if (!currentRefreshToken.equals(refreshTokens.get(memberId))) {
+                return false;
+            }
+
+            refreshTokens.put(
+                    memberId,
+                    newRefreshToken
+            );
+
+            return true;
+        }
+
+        @Override
+        public synchronized void deleteRefreshToken(Long memberId) {
             refreshTokens.remove(memberId);
         }
 
         @Override
-        public void blacklistAccessToken(
+        public synchronized void logoutTokens(
+                Long memberId,
                 String accessToken,
-                long ttlSeconds
+                long accessTokenTtlSeconds
         ) {
-            if (ttlSeconds > 0) {
+            if (accessTokenTtlSeconds > 0) {
                 blacklistedAccessTokens.add(accessToken);
             }
+
+            refreshTokens.remove(memberId);
         }
 
         @Override

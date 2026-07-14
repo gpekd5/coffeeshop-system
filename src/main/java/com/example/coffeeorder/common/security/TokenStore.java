@@ -13,11 +13,19 @@ public interface TokenStore {
             String refreshToken
     );
 
+    boolean rotateRefreshToken(
+            Long memberId,
+            String currentRefreshToken,
+            String newRefreshToken,
+            long ttlSeconds
+    );
+
     void deleteRefreshToken(Long memberId);
 
-    void blacklistAccessToken(
+    void logoutTokens(
+            Long memberId,
             String accessToken,
-            long ttlSeconds
+            long accessTokenTtlSeconds
     );
 
     boolean isAccessTokenBlacklisted(String accessToken);

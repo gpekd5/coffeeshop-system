@@ -1,17 +1,21 @@
 package com.example.coffeeorder.common.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.RedisScript;
 
 class RedisTokenStoreTest {
 
@@ -72,22 +76,58 @@ class RedisTokenStoreTest {
     }
 
     @Test
-    void AccessToken을_해시_Key와_TTL로_Blacklist에_저장한다() {
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        ArgumentCaptor<String> keyCaptor =
-                ArgumentCaptor.forClass(String.class);
+    void RefreshToken_Rotation은_Lua_Script_한_번으로_실행한다() {
+        when(redisTemplate.execute(
+                any(RedisScript.class),
+                anyList(),
+                any(),
+                any(),
+                any()
+        )).thenReturn(1L);
 
-        redisTokenStore.blacklistAccessToken(
+        boolean rotated = redisTokenStore.rotateRefreshToken(
+                1L,
+                "old-refresh-token",
+                "new-refresh-token",
+                1209600L
+        );
+
+        assertThat(rotated).isTrue();
+        verify(redisTemplate).execute(
+                any(RedisScript.class),
+                eq(List.of("auth:refresh:1")),
+                any(),
+                any(),
+                eq("1209600")
+        );
+    }
+
+    @SuppressWarnings({
+            "rawtypes",
+            "unchecked"
+    })
+    @Test
+    void 로그아웃은_Blacklist_저장과_RefreshToken_삭제를_Lua_Script_한_번으로_실행한다() {
+        ArgumentCaptor<List> keysCaptor =
+                ArgumentCaptor.forClass(List.class);
+
+        redisTokenStore.logoutTokens(
+                1L,
                 "access-token",
                 1800L
         );
 
-        verify(valueOperations).set(
-                keyCaptor.capture(),
+        verify(redisTemplate).execute(
+                any(RedisScript.class),
+                keysCaptor.capture(),
                 eq("blacklisted"),
-                eq(Duration.ofSeconds(1800L))
+                eq("1800")
         );
-        assertThat(keyCaptor.getValue())
+        assertThat(keysCaptor.getValue())
+                .hasSize(2);
+        assertThat(keysCaptor.getValue().get(0))
+                .isEqualTo("auth:refresh:1");
+        assertThat(keysCaptor.getValue().get(1).toString())
                 .startsWith("auth:blacklist:access:")
                 .doesNotContain("access-token");
     }

@@ -67,13 +67,6 @@ public class AuthService {
         AuthMember authMember =
                 jwtTokenProvider.getRefreshAuthMember(request.refreshToken());
 
-        if (!tokenStore.matchesRefreshToken(
-                authMember.memberId(),
-                request.refreshToken()
-        )) {
-            throw new BusinessException(ErrorCode.REFRESH_TOKEN_NOT_FOUND);
-        }
-
         Member member = memberRepository.findById(authMember.memberId())
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.MEMBER_NOT_FOUND
@@ -82,11 +75,16 @@ public class AuthService {
 
         TokenResponse tokenResponse = jwtTokenProvider.createLoginTokens(member);
 
-        tokenStore.saveRefreshToken(
+        boolean rotated = tokenStore.rotateRefreshToken(
                 member.getId(),
+                request.refreshToken(),
                 tokenResponse.refreshToken(),
                 tokenResponse.refreshTokenExpiresIn()
         );
+
+        if (!rotated) {
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_NOT_FOUND);
+        }
 
         return LoginResponse.from(tokenResponse);
     }
@@ -99,11 +97,11 @@ public class AuthService {
         long remainingSeconds =
                 jwtTokenProvider.getAccessTokenRemainingSeconds(accessToken);
 
-        tokenStore.blacklistAccessToken(
+        tokenStore.logoutTokens(
+                authMember.memberId(),
                 accessToken,
                 remainingSeconds
         );
-        tokenStore.deleteRefreshToken(authMember.memberId());
     }
 
     private String normalizeEmail(String email) {
