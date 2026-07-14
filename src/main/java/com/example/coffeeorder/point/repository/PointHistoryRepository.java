@@ -1,5 +1,7 @@
 package com.example.coffeeorder.point.repository;
 
+import java.util.Optional;
+
 import com.example.coffeeorder.point.entity.PointHistory;
 import com.example.coffeeorder.point.entity.PointHistoryType;
 import org.springframework.data.domain.Page;
@@ -18,5 +20,10 @@ public interface PointHistoryRepository
             Long memberId,
             PointHistoryType type,
             Pageable pageable
+    );
+
+    Optional<PointHistory> findByOrderIdAndPaymentId(
+            Long orderId,
+            Long paymentId
     );
 }

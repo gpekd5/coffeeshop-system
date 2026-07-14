@@ -16,9 +16,21 @@ public record ApiResponse<T>(
             String message,
             T data
     ) {
+        return success(
+                SUCCESS_CODE,
+                message,
+                data
+        );
+    }
+
+    public static <T> ApiResponse<T> success(
+            String code,
+            String message,
+            T data
+    ) {
         return new ApiResponse<>(
                 true,
-                SUCCESS_CODE,
+                code,
                 message,
                 data
         );

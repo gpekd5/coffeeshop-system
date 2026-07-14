@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -17,6 +18,7 @@ import com.example.coffeeorder.member.entity.Member;
 import com.example.coffeeorder.member.repository.MemberRepository;
 import com.example.coffeeorder.menu.entity.Menu;
 import com.example.coffeeorder.menu.repository.MenuRepository;
+import com.example.coffeeorder.order.dto.response.OrderCreateResult;
 import com.example.coffeeorder.order.dto.response.OrderCreateResponse;
 import com.example.coffeeorder.order.entity.Order;
 import com.example.coffeeorder.order.entity.OrderItem;
@@ -70,9 +72,32 @@ public class OrderTransactionService {
     }
 
     @Transactional
-    public OrderCreateResponse createOrder(Long memberId) {
+    public OrderCreateResult createOrder(
+            Long memberId,
+            String idempotencyKey
+    ) {
+        Optional<OrderCreateResult> existingResult =
+                findExistingOrderResult(
+                        memberId,
+                        idempotencyKey
+                );
+
+        if (existingResult.isPresent()) {
+            return existingResult.get();
+        }
+
         Member member = findMember(memberId);
         Cart cart = findCartForUpdate(memberId);
+
+        existingResult = findExistingOrderResult(
+                memberId,
+                idempotencyKey
+        );
+
+        if (existingResult.isPresent()) {
+            return existingResult.get();
+        }
+
         List<CartItem> cartItems = findCartItems(cart);
         List<Long> menuIds = extractMenuIds(cartItems);
         Map<Long, Menu> menusById = findMenusForOrder(menuIds);
@@ -88,6 +113,7 @@ public class OrderTransactionService {
         LocalDateTime now = LocalDateTime.now(clock);
         Order order = orderRepository.saveAndFlush(Order.completeWebCartOrder(
                 member,
+                idempotencyKey,
                 totalAmount,
                 now
         ));
@@ -115,12 +141,65 @@ public class OrderTransactionService {
         ));
         cartItemRepository.deleteAllByCart_Id(cart.getId());
 
-        return OrderCreateResponse.of(
-                order,
-                orderItems,
-                payment,
-                totalAmount,
-                point.getBalance()
+        return OrderCreateResult.created(
+                OrderCreateResponse.of(
+                        order,
+                        orderItems,
+                        payment,
+                        totalAmount,
+                        point.getBalance()
+                )
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public OrderCreateResult findProcessedOrder(
+            Long memberId,
+            String idempotencyKey
+    ) {
+        return findExistingOrderResult(
+                memberId,
+                idempotencyKey
+        ).orElseThrow(() -> new BusinessException(
+                ErrorCode.ORDER_PROCESSING_CONFLICT
+        ));
+    }
+
+    private Optional<OrderCreateResult> findExistingOrderResult(
+            Long memberId,
+            String idempotencyKey
+    ) {
+        return orderRepository.findByMember_IdAndIdempotencyKey(
+                        memberId,
+                        idempotencyKey
+                )
+                .map(this::createAlreadyProcessedResult);
+    }
+
+    private OrderCreateResult createAlreadyProcessedResult(Order order) {
+        List<OrderItem> orderItems =
+                orderItemRepository.findAllByOrder_IdOrderByIdAsc(order.getId());
+        Payment payment = paymentRepository.findByOrder_Id(order.getId())
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.PAYMENT_NOT_FOUND
+                ));
+        PointHistory pointHistory =
+                pointHistoryRepository.findByOrderIdAndPaymentId(
+                                order.getId(),
+                                payment.getId()
+                        )
+                        .orElseThrow(() -> new BusinessException(
+                                ErrorCode.INTERNAL_SERVER_ERROR
+                        ));
+
+        return OrderCreateResult.alreadyProcessed(
+                OrderCreateResponse.of(
+                        order,
+                        orderItems,
+                        payment,
+                        payment.getAmount(),
+                        pointHistory.getBalanceAfter()
+                )
         );
     }
 

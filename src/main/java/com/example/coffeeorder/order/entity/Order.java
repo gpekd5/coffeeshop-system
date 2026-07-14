@@ -25,10 +25,19 @@ import jakarta.persistence.UniqueConstraint;
 @Entity
 @Table(
         name = "orders",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_orders_order_number",
-                columnNames = "order_number"
-        )
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_orders_order_number",
+                        columnNames = "order_number"
+                ),
+                @UniqueConstraint(
+                        name = "uk_orders_member_idempotency_key",
+                        columnNames = {
+                                "member_id",
+                                "idempotency_key"
+                        }
+                )
+        }
 )
 public class Order extends BaseEntity {
 
@@ -56,7 +65,11 @@ public class Order extends BaseEntity {
     )
     private String orderNumber;
 
-    @Column(name = "idempotency_key", length = 100)
+    @Column(
+            name = "idempotency_key",
+            nullable = false,
+            length = 100
+    )
     private String idempotencyKey;
 
     @Enumerated(EnumType.STRING)
@@ -98,6 +111,7 @@ public class Order extends BaseEntity {
             long totalAmount,
             LocalDateTime orderedAt
     ) {
+        validateIdempotencyKey(idempotencyKey);
         validateTotalAmount(totalAmount);
 
         this.member = member;
@@ -111,13 +125,14 @@ public class Order extends BaseEntity {
 
     public static Order completeWebCartOrder(
             Member member,
+            String idempotencyKey,
             long totalAmount,
             LocalDateTime orderedAt
     ) {
         return new Order(
                 member,
                 createOrderNumber(orderedAt),
-                null,
+                idempotencyKey,
                 OrderChannel.WEB_CART,
                 OrderStatus.COMPLETED,
                 totalAmount,
@@ -144,6 +159,16 @@ public class Order extends BaseEntity {
 
     private static void validateTotalAmount(long totalAmount) {
         if (totalAmount <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+    }
+
+    private static void validateIdempotencyKey(String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            throw new BusinessException(ErrorCode.IDEMPOTENCY_KEY_REQUIRED);
+        }
+
+        if (idempotencyKey.length() > 100) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);
         }
     }

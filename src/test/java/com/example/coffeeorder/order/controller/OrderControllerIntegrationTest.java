@@ -5,12 +5,21 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
+import com.jayway.jsonpath.JsonPath;
 import com.example.coffeeorder.cart.entity.Cart;
 import com.example.coffeeorder.cart.entity.CartItem;
 import com.example.coffeeorder.cart.repository.CartItemRepository;
@@ -49,6 +58,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
@@ -60,6 +70,7 @@ class OrderControllerIntegrationTest {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 
     @Autowired
     private MockMvc mockMvc;
@@ -123,6 +134,48 @@ class OrderControllerIntegrationTest {
     }
 
     @Test
+    void 멱등키가_없으면_주문할_수_없다() throws Exception {
+        TestUser user = 회원과_포인트와_토큰을_생성한다(
+                "user@example.com",
+                10_000L
+        );
+
+        mockMvc.perform(
+                        post("/api/v1/orders")
+                                .header(
+                                        AUTHORIZATION_HEADER,
+                                        BEARER_PREFIX + user.accessToken()
+                                )
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REQUIRED"));
+    }
+
+    @Test
+    void 멱등키가_UUID_형식이_아니면_주문할_수_없다() throws Exception {
+        TestUser user = 회원과_포인트와_토큰을_생성한다(
+                "user@example.com",
+                10_000L
+        );
+
+        mockMvc.perform(
+                        post("/api/v1/orders")
+                                .header(
+                                        AUTHORIZATION_HEADER,
+                                        BEARER_PREFIX + user.accessToken()
+                                )
+                                .header(
+                                        IDEMPOTENCY_KEY_HEADER,
+                                        "not-a-uuid"
+                                )
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+    }
+
+    @Test
     void 장바구니_상품을_서버_계산_금액으로_포인트_결제하고_장바구니를_비운다()
             throws Exception {
         TestUser user = 회원과_포인트와_토큰을_생성한다(
@@ -158,6 +211,10 @@ class OrderControllerIntegrationTest {
                                 .header(
                                         AUTHORIZATION_HEADER,
                                         BEARER_PREFIX + user.accessToken()
+                                )
+                                .header(
+                                        IDEMPOTENCY_KEY_HEADER,
+                                        UUID.randomUUID().toString()
                                 )
                 )
                 .andExpect(status().isOk())
@@ -223,6 +280,225 @@ class OrderControllerIntegrationTest {
     }
 
     @Test
+    void 동일_멱등키_재요청은_기존_주문을_반환하고_추가_차감하지_않는다()
+            throws Exception {
+        TestUser user = 회원과_포인트와_토큰을_생성한다(
+                "user@example.com",
+                10_000L
+        );
+        Menu menu = 메뉴를_저장한다(
+                "아메리카노",
+                MenuCategory.COFFEE,
+                4_500L,
+                MenuStatus.ON_SALE
+        );
+        Cart cart = 장바구니를_저장한다(user.member());
+        장바구니_항목을_저장한다(
+                cart,
+                menu,
+                1
+        );
+        String idempotencyKey = UUID.randomUUID()
+                .toString();
+
+        mockMvc.perform(
+                        post("/api/v1/orders")
+                                .header(
+                                        AUTHORIZATION_HEADER,
+                                        BEARER_PREFIX + user.accessToken()
+                                )
+                                .header(
+                                        IDEMPOTENCY_KEY_HEADER,
+                                        idempotencyKey
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.totalAmount").value(4_500));
+
+        Order order = orderRepository.findAll()
+                .getFirst();
+
+        mockMvc.perform(
+                        post("/api/v1/orders")
+                                .header(
+                                        AUTHORIZATION_HEADER,
+                                        BEARER_PREFIX + user.accessToken()
+                                )
+                                .header(
+                                        IDEMPOTENCY_KEY_HEADER,
+                                        idempotencyKey
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("ORDER_ALREADY_PROCESSED"))
+                .andExpect(jsonPath("$.message").value("이미 처리된 주문입니다."))
+                .andExpect(jsonPath("$.data.orderId").value(order.getId()))
+                .andExpect(jsonPath("$.data.totalAmount").value(4_500))
+                .andExpect(jsonPath("$.data.point.usedAmount").value(4_500))
+                .andExpect(jsonPath("$.data.point.balanceAfter").value(5_500));
+
+        Point point = pointRepository.findByMemberId(user.member()
+                        .getId())
+                .orElseThrow();
+
+        assertThat(orderRepository.count()).isEqualTo(1L);
+        assertThat(orderItemRepository.count()).isEqualTo(1L);
+        assertThat(paymentRepository.count()).isEqualTo(1L);
+        assertThat(pointHistoryRepository.count()).isEqualTo(1L);
+        assertThat(point.getBalance()).isEqualTo(5_500L);
+        assertThat(cartItemRepository.findAllByCart_IdOrderByIdAsc(cart.getId()))
+                .isEmpty();
+    }
+
+    @Test
+    void 서로_다른_회원은_같은_멱등키로_각각_주문할_수_있다() throws Exception {
+        TestUser user = 회원과_포인트와_토큰을_생성한다(
+                "user@example.com",
+                10_000L
+        );
+        TestUser other = 회원과_포인트와_토큰을_생성한다(
+                "other@example.com",
+                10_000L
+        );
+        Menu menu = 메뉴를_저장한다(
+                "아메리카노",
+                MenuCategory.COFFEE,
+                4_500L,
+                MenuStatus.ON_SALE
+        );
+        장바구니_항목을_저장한다(
+                장바구니를_저장한다(user.member()),
+                menu,
+                1
+        );
+        장바구니_항목을_저장한다(
+                장바구니를_저장한다(other.member()),
+                menu,
+                1
+        );
+        String idempotencyKey = UUID.randomUUID()
+                .toString();
+
+        mockMvc.perform(
+                        post("/api/v1/orders")
+                                .header(
+                                        AUTHORIZATION_HEADER,
+                                        BEARER_PREFIX + user.accessToken()
+                                )
+                                .header(
+                                        IDEMPOTENCY_KEY_HEADER,
+                                        idempotencyKey
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"));
+
+        mockMvc.perform(
+                        post("/api/v1/orders")
+                                .header(
+                                        AUTHORIZATION_HEADER,
+                                        BEARER_PREFIX + other.accessToken()
+                                )
+                                .header(
+                                        IDEMPOTENCY_KEY_HEADER,
+                                        idempotencyKey
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"));
+
+        assertThat(orderRepository.count()).isEqualTo(2L);
+        assertThat(paymentRepository.count()).isEqualTo(2L);
+        assertThat(pointHistoryRepository.count()).isEqualTo(2L);
+        assertThat(orderRepository.findAll())
+                .extracting(Order::getIdempotencyKey)
+                .containsOnly(idempotencyKey);
+    }
+
+    @Test
+    void 동일_멱등키_동시_요청은_하나의_주문_결과만_생성한다() throws Exception {
+        TestUser user = 회원과_포인트와_토큰을_생성한다(
+                "user@example.com",
+                10_000L
+        );
+        Menu menu = 메뉴를_저장한다(
+                "아메리카노",
+                MenuCategory.COFFEE,
+                4_500L,
+                MenuStatus.ON_SALE
+        );
+        Cart cart = 장바구니를_저장한다(user.member());
+        장바구니_항목을_저장한다(
+                cart,
+                menu,
+                1
+        );
+        String idempotencyKey = UUID.randomUUID()
+                .toString();
+        int requestCount = 5;
+        CountDownLatch ready = new CountDownLatch(requestCount);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executorService = Executors.newFixedThreadPool(requestCount);
+
+        try {
+            List<Future<OrderRequestResult>> futures = new ArrayList<>();
+
+            for (int i = 0; i < requestCount; i++) {
+                futures.add(executorService.submit(() -> 주문_결과를_반환한다(
+                        user.accessToken(),
+                        idempotencyKey,
+                        ready,
+                        start
+                )));
+            }
+
+            assertThat(ready.await(
+                    1,
+                    TimeUnit.SECONDS
+            )).isTrue();
+            start.countDown();
+
+            List<OrderRequestResult> results = new ArrayList<>();
+
+            for (Future<OrderRequestResult> future : futures) {
+                results.add(future.get(
+                        10,
+                        TimeUnit.SECONDS
+                ));
+            }
+
+            assertThat(results)
+                    .extracting(OrderRequestResult::status)
+                    .containsOnly(200);
+            assertThat(results)
+                    .extracting(OrderRequestResult::orderId)
+                    .containsOnly(results.getFirst()
+                            .orderId());
+            assertThat(results)
+                    .extracting(OrderRequestResult::code)
+                    .contains("SUCCESS")
+                    .allMatch(code -> code.equals("SUCCESS")
+                            || code.equals("ORDER_ALREADY_PROCESSED"));
+        } finally {
+            executorService.shutdownNow();
+        }
+
+        Point point = pointRepository.findByMemberId(user.member()
+                        .getId())
+                .orElseThrow();
+
+        assertThat(orderRepository.count()).isEqualTo(1L);
+        assertThat(orderItemRepository.count()).isEqualTo(1L);
+        assertThat(paymentRepository.count()).isEqualTo(1L);
+        assertThat(pointHistoryRepository.count()).isEqualTo(1L);
+        assertThat(point.getBalance()).isEqualTo(5_500L);
+        assertThat(cartItemRepository.findAllByCart_IdOrderByIdAsc(cart.getId()))
+                .isEmpty();
+    }
+
+    @Test
     void 주문_시점의_메뉴_가격과_이름으로_재검증하고_주문_항목에_스냅샷을_남긴다()
             throws Exception {
         TestUser user = 회원과_포인트와_토큰을_생성한다(
@@ -254,6 +530,10 @@ class OrderControllerIntegrationTest {
                                 .header(
                                         AUTHORIZATION_HEADER,
                                         BEARER_PREFIX + user.accessToken()
+                                )
+                                .header(
+                                        IDEMPOTENCY_KEY_HEADER,
+                                        UUID.randomUUID().toString()
                                 )
                 )
                 .andExpect(status().isOk())
@@ -308,6 +588,10 @@ class OrderControllerIntegrationTest {
                                         AUTHORIZATION_HEADER,
                                         BEARER_PREFIX + user.accessToken()
                                 )
+                                .header(
+                                        IDEMPOTENCY_KEY_HEADER,
+                                        UUID.randomUUID().toString()
+                                )
                 )
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
@@ -338,6 +622,10 @@ class OrderControllerIntegrationTest {
                                 .header(
                                         AUTHORIZATION_HEADER,
                                         BEARER_PREFIX + user.accessToken()
+                                )
+                                .header(
+                                        IDEMPOTENCY_KEY_HEADER,
+                                        UUID.randomUUID().toString()
                                 )
                 )
                 .andExpect(status().isBadRequest())
@@ -372,6 +660,10 @@ class OrderControllerIntegrationTest {
                                 .header(
                                         AUTHORIZATION_HEADER,
                                         BEARER_PREFIX + user.accessToken()
+                                )
+                                .header(
+                                        IDEMPOTENCY_KEY_HEADER,
+                                        UUID.randomUUID().toString()
                                 )
                 )
                 .andExpect(status().isConflict())
@@ -416,6 +708,10 @@ class OrderControllerIntegrationTest {
                                 .header(
                                         AUTHORIZATION_HEADER,
                                         BEARER_PREFIX + user.accessToken()
+                                )
+                                .header(
+                                        IDEMPOTENCY_KEY_HEADER,
+                                        UUID.randomUUID().toString()
                                 )
                 )
                 .andExpect(status().isNotFound())
@@ -490,9 +786,70 @@ class OrderControllerIntegrationTest {
         ));
     }
 
+    private OrderRequestResult 주문_결과를_반환한다(
+            String accessToken,
+            String idempotencyKey,
+            CountDownLatch ready,
+            CountDownLatch start
+    ) throws Exception {
+        ready.countDown();
+        start.await(
+                1,
+                TimeUnit.SECONDS
+        );
+
+        MvcResult result = mockMvc.perform(
+                        post("/api/v1/orders")
+                                .header(
+                                        AUTHORIZATION_HEADER,
+                                        BEARER_PREFIX + accessToken
+                                )
+                                .header(
+                                        IDEMPOTENCY_KEY_HEADER,
+                                        idempotencyKey
+                                )
+                )
+                .andReturn();
+
+        int status = result.getResponse()
+                .getStatus();
+        String content = result.getResponse()
+                .getContentAsString(StandardCharsets.UTF_8);
+
+        if (status != 200) {
+            return new OrderRequestResult(
+                    status,
+                    null,
+                    null
+            );
+        }
+
+        Number orderId = JsonPath.read(
+                content,
+                "$.data.orderId"
+        );
+        String code = JsonPath.read(
+                content,
+                "$.code"
+        );
+
+        return new OrderRequestResult(
+                status,
+                orderId.longValue(),
+                code
+        );
+    }
+
     private record TestUser(
             Member member,
             String accessToken
+    ) {
+    }
+
+    private record OrderRequestResult(
+            int status,
+            Long orderId,
+            String code
     ) {
     }
 
