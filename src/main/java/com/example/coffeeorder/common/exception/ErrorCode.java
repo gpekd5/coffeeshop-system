@@ -119,6 +119,11 @@ public enum ErrorCode {
             "INVALID_QUANTITY",
             "수량은 1 이상이어야 합니다."
     ),
+    INVALID_CART_ITEM_QUANTITY(
+            HttpStatus.BAD_REQUEST,
+            "INVALID_CART_ITEM_QUANTITY",
+            "장바구니 항목 수량이 올바르지 않습니다."
+    ),
     CART_ITEM_QUANTITY_EXCEEDED(
             HttpStatus.BAD_REQUEST,
             "CART_ITEM_QUANTITY_EXCEEDED",
