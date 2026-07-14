@@ -169,6 +169,11 @@ public enum ErrorCode {
             "POINT_UPDATE_CONFLICT",
             "포인트 변경 중 동시성 충돌이 발생했습니다."
     ),
+    INVALID_POINT_HISTORY_TYPE(
+            HttpStatus.BAD_REQUEST,
+            "INVALID_POINT_HISTORY_TYPE",
+            "유효하지 않은 포인트 이력 유형입니다."
+    ),
     IDEMPOTENCY_KEY_REQUIRED(
             HttpStatus.BAD_REQUEST,
             "IDEMPOTENCY_KEY_REQUIRED",
