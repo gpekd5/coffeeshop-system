@@ -94,6 +94,11 @@ public enum ErrorCode {
             "INVALID_MENU_STATUS",
             "유효하지 않은 메뉴 상태입니다."
     ),
+    INVALID_PAGE_REQUEST(
+            HttpStatus.BAD_REQUEST,
+            "INVALID_PAGE_REQUEST",
+            "잘못된 페이징 요청입니다."
+    ),
     MENU_NOT_FOUND(
             HttpStatus.NOT_FOUND,
             "MENU_NOT_FOUND",

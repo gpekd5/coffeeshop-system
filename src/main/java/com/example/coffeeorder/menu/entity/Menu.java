@@ -1,0 +1,170 @@
+package com.example.coffeeorder.menu.entity;
+
+import java.time.LocalDateTime;
+
+import com.example.coffeeorder.common.entity.BaseEntity;
+import com.example.coffeeorder.common.exception.BusinessException;
+import com.example.coffeeorder.common.exception.ErrorCode;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "menus")
+public class Menu extends BaseEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(
+            nullable = false,
+            length = 100
+    )
+    private String name;
+
+    @Column(length = 500)
+    private String description;
+
+    @Enumerated(EnumType.STRING)
+    @Column(
+            nullable = false,
+            length = 30
+    )
+    private MenuCategory category;
+
+    @Column(nullable = false)
+    private Long price;
+
+    @Enumerated(EnumType.STRING)
+    @Column(
+            nullable = false,
+            length = 20
+    )
+    private MenuStatus status;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    protected Menu() {
+    }
+
+    private Menu(
+            String name,
+            String description,
+            MenuCategory category,
+            long price,
+            MenuStatus status
+    ) {
+        validateName(name);
+        validateCategory(category);
+        validatePrice(price);
+        validateStatus(status);
+
+        this.name = name;
+        this.description = description;
+        this.category = category;
+        this.price = price;
+        this.status = status;
+    }
+
+    public static Menu create(
+            String name,
+            String description,
+            MenuCategory category,
+            long price
+    ) {
+        return create(
+                name,
+                description,
+                category,
+                price,
+                MenuStatus.ON_SALE
+        );
+    }
+
+    public static Menu create(
+            String name,
+            String description,
+            MenuCategory category,
+            long price,
+            MenuStatus status
+    ) {
+        return new Menu(
+                name,
+                description,
+                category,
+                price,
+                status
+        );
+    }
+
+    public void delete(LocalDateTime deletedAt) {
+        if (isDeleted()) {
+            throw new BusinessException(ErrorCode.MENU_ALREADY_DELETED);
+        }
+
+        this.deletedAt = deletedAt;
+    }
+
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public MenuCategory getCategory() {
+        return category;
+    }
+
+    public Long getPrice() {
+        return price;
+    }
+
+    public MenuStatus getStatus() {
+        return status;
+    }
+
+    public LocalDateTime getDeletedAt() {
+        return deletedAt;
+    }
+
+    private static void validateName(String name) {
+        if (name == null || name.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+    }
+
+    private static void validateCategory(MenuCategory category) {
+        if (category == null) {
+            throw new BusinessException(ErrorCode.INVALID_MENU_CATEGORY);
+        }
+    }
+
+    private static void validatePrice(long price) {
+        if (price <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_MENU_PRICE);
+        }
+    }
+
+    private static void validateStatus(MenuStatus status) {
+        if (status == null) {
+            throw new BusinessException(ErrorCode.INVALID_MENU_STATUS);
+        }
+    }
+}
