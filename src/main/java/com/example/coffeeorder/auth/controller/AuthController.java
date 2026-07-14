@@ -1,17 +1,21 @@
 package com.example.coffeeorder.auth.controller;
 
 import com.example.coffeeorder.auth.dto.request.LoginRequest;
+import com.example.coffeeorder.auth.dto.request.ReissueTokenRequest;
 import com.example.coffeeorder.auth.dto.response.LoginResponse;
 import com.example.coffeeorder.auth.service.AuthService;
 import com.example.coffeeorder.common.response.ApiResponse;
+import com.example.coffeeorder.common.security.AuthMember;
 import com.example.coffeeorder.member.dto.request.SignupRequest;
 import com.example.coffeeorder.member.dto.response.SignupResponse;
 import com.example.coffeeorder.member.service.MemberService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -55,6 +59,38 @@ public class AuthController {
                 ApiResponse.success(
                         "로그인에 성공했습니다.",
                         response
+                )
+        );
+    }
+
+    @PostMapping("/reissue")
+    public ResponseEntity<ApiResponse<LoginResponse>> reissue(
+            @Valid @RequestBody ReissueTokenRequest request
+    ) {
+        LoginResponse response = authService.reissue(request);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "토큰이 재발급되었습니다.",
+                        response
+                )
+        );
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @AuthenticationPrincipal AuthMember authMember,
+            @RequestHeader("Authorization") String authorization
+    ) {
+        authService.logout(
+                authMember,
+                authorization
+        );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "로그아웃이 완료되었습니다.",
+                        null
                 )
         );
     }

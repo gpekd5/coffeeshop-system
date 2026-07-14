@@ -19,13 +19,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final TokenStore tokenStore;
     private final SecurityErrorResponseWriter securityErrorResponseWriter;
 
     public JwtAuthenticationFilter(
             JwtTokenProvider jwtTokenProvider,
+            TokenStore tokenStore,
             SecurityErrorResponseWriter securityErrorResponseWriter
     ) {
         this.jwtTokenProvider = jwtTokenProvider;
+        this.tokenStore = tokenStore;
         this.securityErrorResponseWriter = securityErrorResponseWriter;
     }
 
@@ -64,6 +67,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String token = authorization.substring(BEARER_PREFIX.length());
+
+        if (tokenStore.isAccessTokenBlacklisted(token)) {
+            throw new JwtAuthenticationException(
+                    ErrorCode.BLACKLISTED_TOKEN
+            );
+        }
+
         AuthMember authMember = jwtTokenProvider.getAuthMember(token);
 
         UsernamePasswordAuthenticationToken authentication =

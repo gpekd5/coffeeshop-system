@@ -78,6 +78,67 @@ class JwtTokenProviderTest {
                 .isEqualTo(ErrorCode.INVALID_TOKEN);
     }
 
+    @Test
+    void RefreshToken에서_인증_사용자를_복원한다() {
+        Member member = member();
+        String token = jwtTokenProvider.createToken(
+                member,
+                "REFRESH",
+                1800L
+        );
+
+        AuthMember authMember = jwtTokenProvider.getRefreshAuthMember(token);
+
+        assertThat(authMember.memberId()).isEqualTo(1L);
+        assertThat(authMember.email()).isEqualTo("test@example.com");
+        assertThat(authMember.role()).isEqualTo(MemberRole.USER);
+    }
+
+    @Test
+    void 만료된_RefreshToken이면_EXPIRED_REFRESH_TOKEN_오류를_던진다() {
+        Member member = member();
+        String token = jwtTokenProvider.createToken(
+                member,
+                "REFRESH",
+                -1L
+        );
+
+        assertThatThrownBy(() -> jwtTokenProvider.getRefreshAuthMember(token))
+                .isInstanceOf(JwtAuthenticationException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.EXPIRED_REFRESH_TOKEN);
+    }
+
+    @Test
+    void AccessToken은_RefreshToken_재발급에_사용할_수_없다() {
+        Member member = member();
+        String token = jwtTokenProvider.createToken(
+                member,
+                "ACCESS",
+                1800L
+        );
+
+        assertThatThrownBy(() -> jwtTokenProvider.getRefreshAuthMember(token))
+                .isInstanceOf(JwtAuthenticationException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN);
+    }
+
+    @Test
+    void AccessToken의_남은_유효시간을_초_단위로_계산한다() {
+        Member member = member();
+        String token = jwtTokenProvider.createToken(
+                member,
+                "ACCESS",
+                1800L
+        );
+
+        long remainingSeconds =
+                jwtTokenProvider.getAccessTokenRemainingSeconds(token);
+
+        assertThat(remainingSeconds).isEqualTo(1800L);
+    }
+
     private Member member() {
         Member member = Member.create(
                 "test@example.com",

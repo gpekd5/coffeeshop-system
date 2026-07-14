@@ -2,6 +2,7 @@ package com.example.coffeeorder.common.exception;
 
 import com.example.coffeeorder.common.response.ApiResponse;
 import com.example.coffeeorder.common.response.ValidationErrorResponse;
+import com.example.coffeeorder.common.security.JwtAuthenticationException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(
             BusinessException exception
+    ) {
+        ErrorCode errorCode = exception.getErrorCode();
+
+        return ResponseEntity.status(errorCode.getStatus())
+                .body(ApiResponse.error(errorCode));
+    }
+
+    @ExceptionHandler(JwtAuthenticationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleJwtAuthenticationException(
+            JwtAuthenticationException exception
     ) {
         ErrorCode errorCode = exception.getErrorCode();
 

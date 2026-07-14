@@ -6,8 +6,20 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
 import com.example.coffeeorder.common.response.ApiResponse;
 import com.example.coffeeorder.common.security.AuthMember;
+import com.example.coffeeorder.common.security.TokenStore;
 import com.example.coffeeorder.member.entity.Member;
 import com.example.coffeeorder.member.entity.MemberRole;
 import com.example.coffeeorder.member.entity.MemberStatus;
@@ -18,8 +30,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -37,7 +52,10 @@ import tools.jackson.databind.ObjectMapper;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @TestPropertySource(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
-@Import(AuthControllerIntegrationTest.TestAuthController.class)
+@Import({
+        AuthControllerIntegrationTest.TestAuthController.class,
+        AuthControllerIntegrationTest.TestTokenStoreConfig.class
+})
 class AuthControllerIntegrationTest {
 
     @Autowired
@@ -55,10 +73,17 @@ class AuthControllerIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private TokenStore tokenStore;
+
     @BeforeEach
     void setUp() {
         pointRepository.deleteAll();
         memberRepository.deleteAll();
+
+        if (tokenStore instanceof InMemoryTokenStore inMemoryTokenStore) {
+            inMemoryTokenStore.clear();
+        }
     }
 
     @Test
@@ -209,6 +234,11 @@ class AuthControllerIntegrationTest {
         Member member = memberRepository.findByEmail("test@example.com")
                 .orElseThrow();
 
+        assertThat(tokenStore.matchesRefreshToken(
+                member.getId(),
+                refreshToken
+        )).isTrue();
+
         mockMvc.perform(
                         get("/api/v1/test/auth-member")
                                 .header(
@@ -230,6 +260,217 @@ class AuthControllerIntegrationTest {
                 )
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("INVALID_TOKEN"));
+    }
+
+    @Test
+    void RefreshToken으로_토큰을_재발급하면_기존_RefreshToken이_교체된다() throws Exception {
+        회원가입을_요청한다(
+                "test@example.com",
+                "Password123!",
+                "홍길동"
+        );
+        MvcResult loginResult = 로그인_결과를_요청한다(
+                "test@example.com",
+                "Password123!"
+        );
+        TokenData loginTokens = tokenDataFrom(loginResult);
+        Member member = memberRepository.findByEmail("test@example.com")
+                .orElseThrow();
+
+        MvcResult reissueResult = mockMvc.perform(
+                        post("/api/v1/auth/reissue")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "refreshToken": "%s"
+                                        }
+                                        """.formatted(loginTokens.refreshToken()))
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.message").value("토큰이 재발급되었습니다."))
+                .andExpect(jsonPath("$.data.accessToken").isString())
+                .andExpect(jsonPath("$.data.refreshToken").isString())
+                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
+                .andReturn();
+
+        TokenData reissuedTokens = tokenDataFrom(reissueResult);
+
+        assertThat(reissuedTokens.refreshToken())
+                .isNotEqualTo(loginTokens.refreshToken());
+        assertThat(tokenStore.matchesRefreshToken(
+                member.getId(),
+                loginTokens.refreshToken()
+        )).isFalse();
+        assertThat(tokenStore.matchesRefreshToken(
+                member.getId(),
+                reissuedTokens.refreshToken()
+        )).isTrue();
+
+        mockMvc.perform(
+                        post("/api/v1/auth/reissue")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "refreshToken": "%s"
+                                        }
+                                        """.formatted(loginTokens.refreshToken()))
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("REFRESH_TOKEN_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Redis에 Refresh Token이 존재하지 않습니다."));
+    }
+
+    @Test
+    void 동일_RefreshToken_동시_재발급은_하나만_성공한다() throws Exception {
+        회원가입을_요청한다(
+                "test@example.com",
+                "Password123!",
+                "홍길동"
+        );
+        MvcResult loginResult = 로그인_결과를_요청한다(
+                "test@example.com",
+                "Password123!"
+        );
+        String refreshToken = tokenDataFrom(loginResult).refreshToken();
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executorService = Executors.newFixedThreadPool(2);
+
+        try {
+            List<Future<Integer>> futures = List.of(
+                    executorService.submit(() -> 토큰_재발급_상태코드(
+                            refreshToken,
+                            ready,
+                            start
+                    )),
+                    executorService.submit(() -> 토큰_재발급_상태코드(
+                            refreshToken,
+                            ready,
+                            start
+                    ))
+            );
+
+            assertThat(ready.await(
+                    1,
+                    TimeUnit.SECONDS
+            )).isTrue();
+            start.countDown();
+
+            List<Integer> statusCodes = new ArrayList<>();
+
+            for (Future<Integer> future : futures) {
+                statusCodes.add(future.get(
+                        5,
+                        TimeUnit.SECONDS
+                ));
+            }
+
+            assertThat(statusCodes)
+                    .containsExactlyInAnyOrder(
+                            200,
+                            401
+                    );
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void RefreshToken이_누락되면_검증_오류를_반환한다() throws Exception {
+        mockMvc.perform(
+                        post("/api/v1/auth/reissue")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "refreshToken": ""
+                                        }
+                                        """)
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"))
+                .andExpect(jsonPath("$.data.errors[0].field").value("refreshToken"))
+                .andExpect(jsonPath("$.data.errors[0].message")
+                        .value("Refresh Token은 필수입니다."));
+    }
+
+    @Test
+    void 유효하지_않은_RefreshToken이면_재발급에_실패한다() throws Exception {
+        mockMvc.perform(
+                        post("/api/v1/auth/reissue")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "refreshToken": "invalid-refresh-token"
+                                        }
+                                        """)
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("INVALID_REFRESH_TOKEN"))
+                .andExpect(jsonPath("$.message").value("유효하지 않은 Refresh Token입니다."));
+    }
+
+    @Test
+    void 로그아웃하면_AccessToken을_차단하고_RefreshToken을_삭제한다() throws Exception {
+        회원가입을_요청한다(
+                "test@example.com",
+                "Password123!",
+                "홍길동"
+        );
+        MvcResult loginResult = 로그인_결과를_요청한다(
+                "test@example.com",
+                "Password123!"
+        );
+        TokenData loginTokens = tokenDataFrom(loginResult);
+        Member member = memberRepository.findByEmail("test@example.com")
+                .orElseThrow();
+
+        mockMvc.perform(
+                        post("/api/v1/auth/logout")
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + loginTokens.accessToken()
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.message").value("로그아웃이 완료되었습니다."))
+                .andExpect(jsonPath("$.data").doesNotExist());
+
+        assertThat(tokenStore.isAccessTokenBlacklisted(
+                loginTokens.accessToken()
+        )).isTrue();
+        assertThat(tokenStore.matchesRefreshToken(
+                member.getId(),
+                loginTokens.refreshToken()
+        )).isFalse();
+
+        mockMvc.perform(
+                        get("/api/v1/test/auth-member")
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + loginTokens.accessToken()
+                                )
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("BLACKLISTED_TOKEN"))
+                .andExpect(jsonPath("$.message").value("로그아웃 처리된 Access Token입니다."));
+
+        mockMvc.perform(
+                        post("/api/v1/auth/reissue")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "refreshToken": "%s"
+                                        }
+                                        """.formatted(loginTokens.refreshToken()))
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("REFRESH_TOKEN_NOT_FOUND"));
     }
 
     @Test
@@ -427,7 +668,19 @@ class AuthControllerIntegrationTest {
             String email,
             String password
     ) throws Exception {
-        MvcResult result = mockMvc.perform(
+        MvcResult result = 로그인_결과를_요청한다(
+                email,
+                password
+        );
+
+        return accessTokenFrom(result);
+    }
+
+    private MvcResult 로그인_결과를_요청한다(
+            String email,
+            String password
+    ) throws Exception {
+        return mockMvc.perform(
                         post("/api/v1/auth/login")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
@@ -442,8 +695,6 @@ class AuthControllerIntegrationTest {
                 )
                 .andExpect(status().isOk())
                 .andReturn();
-
-        return accessTokenFrom(result);
     }
 
     private void 회원상태를_변경한다(
@@ -476,6 +727,31 @@ class AuthControllerIntegrationTest {
         memberRepository.saveAndFlush(member);
     }
 
+    private int 토큰_재발급_상태코드(
+            String refreshToken,
+            CountDownLatch ready,
+            CountDownLatch start
+    ) throws Exception {
+        ready.countDown();
+        start.await(
+                1,
+                TimeUnit.SECONDS
+        );
+
+        return mockMvc.perform(
+                        post("/api/v1/auth/reissue")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "refreshToken": "%s"
+                                        }
+                                        """.formatted(refreshToken))
+                )
+                .andReturn()
+                .getResponse()
+                .getStatus();
+    }
+
     private String accessTokenFrom(MvcResult result) throws Exception {
         return tokenDataFrom(result).accessToken();
     }
@@ -496,6 +772,97 @@ class AuthControllerIntegrationTest {
             String accessToken,
             String refreshToken
     ) {
+    }
+
+    @TestConfiguration
+    static class TestTokenStoreConfig {
+
+        @Bean
+        @Primary
+        TokenStore tokenStore() {
+            return new InMemoryTokenStore();
+        }
+    }
+
+    static class InMemoryTokenStore implements TokenStore {
+
+        private final Map<Long, String> refreshTokens =
+                new ConcurrentHashMap<>();
+        private final Set<String> blacklistedAccessTokens =
+                ConcurrentHashMap.newKeySet();
+
+        @Override
+        public void saveRefreshToken(
+                Long memberId,
+                String refreshToken,
+                long ttlSeconds
+        ) {
+            if (ttlSeconds > 0) {
+                refreshTokens.put(
+                        memberId,
+                        refreshToken
+                );
+            }
+        }
+
+        @Override
+        public synchronized boolean matchesRefreshToken(
+                Long memberId,
+                String refreshToken
+        ) {
+            return refreshToken.equals(refreshTokens.get(memberId));
+        }
+
+        @Override
+        public synchronized boolean rotateRefreshToken(
+                Long memberId,
+                String currentRefreshToken,
+                String newRefreshToken,
+                long ttlSeconds
+        ) {
+            if (ttlSeconds <= 0) {
+                return false;
+            }
+
+            if (!currentRefreshToken.equals(refreshTokens.get(memberId))) {
+                return false;
+            }
+
+            refreshTokens.put(
+                    memberId,
+                    newRefreshToken
+            );
+
+            return true;
+        }
+
+        @Override
+        public synchronized void deleteRefreshToken(Long memberId) {
+            refreshTokens.remove(memberId);
+        }
+
+        @Override
+        public synchronized void logoutTokens(
+                Long memberId,
+                String accessToken,
+                long accessTokenTtlSeconds
+        ) {
+            if (accessTokenTtlSeconds > 0) {
+                blacklistedAccessTokens.add(accessToken);
+            }
+
+            refreshTokens.remove(memberId);
+        }
+
+        @Override
+        public boolean isAccessTokenBlacklisted(String accessToken) {
+            return blacklistedAccessTokens.contains(accessToken);
+        }
+
+        void clear() {
+            refreshTokens.clear();
+            blacklistedAccessTokens.clear();
+        }
     }
 
     @RestController
