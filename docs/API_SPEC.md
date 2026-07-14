@@ -2074,6 +2074,7 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 | `400` | `INVALID_MENU_CATEGORY` | 유효하지 않은 메뉴 카테고리 |
 | `400` | `INVALID_MENU_PRICE` | 메뉴 가격이 0 이하 |
 | `400` | `INVALID_MENU_STATUS` | 유효하지 않은 메뉴 상태 |
+| `400` | `INVALID_PAGE_REQUEST` | 잘못된 페이징 요청 |
 | `404` | `MENU_NOT_FOUND` | 메뉴를 찾을 수 없음 |
 | `409` | `MENU_NOT_ON_SALE` | 판매 중인 메뉴가 아님 |
 | `409` | `MENU_ALREADY_DELETED` | 이미 삭제된 메뉴 |
