@@ -4,6 +4,7 @@ import com.example.coffeeorder.common.response.ApiResponse;
 import com.example.coffeeorder.common.security.AuthMember;
 import com.example.coffeeorder.member.dto.response.MyInfoResponse;
 import com.example.coffeeorder.member.service.MemberService;
+import com.example.coffeeorder.member.service.MemberWithdrawalService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -17,9 +18,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class MemberController {
 
     private final MemberService memberService;
+    private final MemberWithdrawalService memberWithdrawalService;
 
-    public MemberController(MemberService memberService) {
+    public MemberController(
+            MemberService memberService,
+            MemberWithdrawalService memberWithdrawalService
+    ) {
         this.memberService = memberService;
+        this.memberWithdrawalService = memberWithdrawalService;
     }
 
     @GetMapping("/me")
@@ -42,7 +48,7 @@ public class MemberController {
             @AuthenticationPrincipal AuthMember authMember,
             @RequestHeader("Authorization") String authorization
     ) {
-        memberService.withdraw(
+        memberWithdrawalService.withdraw(
                 authMember.memberId(),
                 authorization
         );
