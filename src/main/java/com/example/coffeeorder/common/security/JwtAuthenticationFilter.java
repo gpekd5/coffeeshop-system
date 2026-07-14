@@ -3,6 +3,8 @@ package com.example.coffeeorder.common.security;
 import java.io.IOException;
 
 import com.example.coffeeorder.common.exception.ErrorCode;
+import com.example.coffeeorder.member.entity.Member;
+import com.example.coffeeorder.member.repository.MemberRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,15 +22,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final TokenStore tokenStore;
+    private final MemberRepository memberRepository;
     private final SecurityErrorResponseWriter securityErrorResponseWriter;
 
     public JwtAuthenticationFilter(
             JwtTokenProvider jwtTokenProvider,
             TokenStore tokenStore,
+            MemberRepository memberRepository,
             SecurityErrorResponseWriter securityErrorResponseWriter
     ) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.tokenStore = tokenStore;
+        this.memberRepository = memberRepository;
         this.securityErrorResponseWriter = securityErrorResponseWriter;
     }
 
@@ -75,15 +80,38 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         AuthMember authMember = jwtTokenProvider.getAuthMember(token);
+        Member member = findAuthenticatableMember(authMember.memberId());
+        AuthMember currentAuthMember = new AuthMember(
+                member.getId(),
+                member.getEmail(),
+                member.getRole()
+        );
 
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(
-                        authMember,
+                        currentAuthMember,
                         null,
-                        jwtTokenProvider.getAuthorities(authMember)
+                        jwtTokenProvider.getAuthorities(currentAuthMember)
                 );
 
         SecurityContextHolder.getContext()
                 .setAuthentication(authentication);
+    }
+
+    private Member findAuthenticatableMember(Long memberId) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new JwtAuthenticationException(
+                        ErrorCode.MEMBER_NOT_FOUND
+                ));
+
+        if (member.isInactive()) {
+            throw new JwtAuthenticationException(ErrorCode.MEMBER_INACTIVE);
+        }
+
+        if (member.isWithdrawn()) {
+            throw new JwtAuthenticationException(ErrorCode.MEMBER_WITHDRAWN);
+        }
+
+        return member;
     }
 }

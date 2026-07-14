@@ -3,6 +3,8 @@ package com.example.coffeeorder.member.entity;
 import java.time.LocalDateTime;
 
 import com.example.coffeeorder.common.entity.BaseEntity;
+import com.example.coffeeorder.common.exception.BusinessException;
+import com.example.coffeeorder.common.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -127,6 +129,15 @@ public class Member extends BaseEntity {
 
     public boolean isWithdrawn() {
         return status == MemberStatus.WITHDRAWN;
+    }
+
+    public void withdraw(LocalDateTime deletedAt) {
+        if (isWithdrawn()) {
+            throw new BusinessException(ErrorCode.MEMBER_ALREADY_WITHDRAWN);
+        }
+
+        this.status = MemberStatus.WITHDRAWN;
+        this.deletedAt = deletedAt;
     }
 
     public LocalDateTime getDeletedAt() {
