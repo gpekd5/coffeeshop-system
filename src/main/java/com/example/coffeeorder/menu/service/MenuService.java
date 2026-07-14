@@ -1,11 +1,16 @@
 package com.example.coffeeorder.menu.service;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 
 import com.example.coffeeorder.common.exception.BusinessException;
 import com.example.coffeeorder.common.exception.ErrorCode;
 import com.example.coffeeorder.common.response.PageResponse;
+import com.example.coffeeorder.menu.dto.request.MenuCreateRequest;
+import com.example.coffeeorder.menu.dto.request.MenuStatusUpdateRequest;
+import com.example.coffeeorder.menu.dto.request.MenuUpdateRequest;
 import com.example.coffeeorder.menu.dto.response.MenuResponse;
+import com.example.coffeeorder.menu.dto.response.MenuStatusResponse;
 import com.example.coffeeorder.menu.entity.Menu;
 import com.example.coffeeorder.menu.entity.MenuCategory;
 import com.example.coffeeorder.menu.entity.MenuStatus;
@@ -86,11 +91,83 @@ public class MenuService {
         return MenuResponse.from(menu);
     }
 
+    @Transactional
+    public MenuResponse createMenu(MenuCreateRequest request) {
+        Menu menu = Menu.create(
+                request.name(),
+                request.description(),
+                parseRequiredCategory(request.category()),
+                request.price(),
+                parseStatusOrDefault(request.status())
+        );
+
+        Menu savedMenu = menuRepository.saveAndFlush(menu);
+
+        return MenuResponse.from(savedMenu);
+    }
+
+    @Transactional
+    public MenuResponse updateMenu(
+            Long menuId,
+            MenuUpdateRequest request
+    ) {
+        Menu menu = findMenu(menuId);
+
+        menu.update(
+                request.name(),
+                request.description(),
+                parseOptionalCategory(request.category()),
+                request.price()
+        );
+        menuRepository.flush();
+
+        return MenuResponse.from(menu);
+    }
+
+    @Transactional
+    public MenuStatusResponse updateMenuStatus(
+            Long menuId,
+            MenuStatusUpdateRequest request
+    ) {
+        Menu menu = findMenu(menuId);
+
+        menu.changeStatus(parseRequiredStatus(request.status()));
+        menuRepository.flush();
+
+        return MenuStatusResponse.from(menu);
+    }
+
+    @Transactional
+    public void deleteMenu(Long menuId) {
+        Menu menu = findMenu(menuId);
+
+        menu.delete(LocalDateTime.now());
+    }
+
+    private Menu findMenu(Long menuId) {
+        return menuRepository.findById(menuId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.MENU_NOT_FOUND
+                ));
+    }
+
     private MenuCategory parseCategory(String category) {
         if (category == null) {
             return null;
         }
 
+        return parseRequiredCategory(category);
+    }
+
+    private MenuCategory parseOptionalCategory(String category) {
+        if (category == null) {
+            return null;
+        }
+
+        return parseRequiredCategory(category);
+    }
+
+    private MenuCategory parseRequiredCategory(String category) {
         if (category.isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_MENU_CATEGORY);
         }
@@ -107,6 +184,10 @@ public class MenuService {
             return MenuStatus.ON_SALE;
         }
 
+        return parseRequiredStatus(status);
+    }
+
+    private MenuStatus parseRequiredStatus(String status) {
         if (status.isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_MENU_STATUS);
         }
