@@ -98,6 +98,7 @@ public class OrderTransactionService {
             return existingResult.get();
         }
 
+        // Keep DB locks in cart -> menu IDs ascending -> point order to reduce deadlocks across instances.
         List<CartItem> cartItems = findCartItems(cart);
         List<Long> menuIds = extractMenuIds(cartItems);
         Map<Long, Menu> menusById = findMenusForOrder(menuIds);

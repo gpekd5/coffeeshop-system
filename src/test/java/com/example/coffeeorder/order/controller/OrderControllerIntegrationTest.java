@@ -48,6 +48,7 @@ import com.example.coffeeorder.point.entity.PointHistoryType;
 import com.example.coffeeorder.point.repository.PointHistoryRepository;
 import com.example.coffeeorder.point.repository.PointRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -498,6 +499,99 @@ class OrderControllerIntegrationTest {
                 .isEmpty();
     }
 
+    @RepeatedTest(3)
+    void 서로_다른_멱등키_동시_주문은_포인트와_주문_데이터의_정합성을_유지한다()
+            throws Exception {
+        long initialBalance = 5_000L;
+        long orderAmount = 3_000L;
+        TestUser user = 회원과_포인트와_토큰을_생성한다(
+                "user@example.com",
+                initialBalance
+        );
+        Menu menu = 메뉴를_저장한다(
+                "아메리카노",
+                MenuCategory.COFFEE,
+                orderAmount,
+                MenuStatus.ON_SALE
+        );
+        Cart cart = 장바구니를_저장한다(user.member());
+        장바구니_항목을_저장한다(
+                cart,
+                menu,
+                1
+        );
+        int requestCount = 2;
+        CountDownLatch ready = new CountDownLatch(requestCount);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executorService = Executors.newFixedThreadPool(requestCount);
+
+        List<OrderRequestResult> results = new ArrayList<>();
+
+        try {
+            List<Future<OrderRequestResult>> futures = new ArrayList<>();
+
+            for (int i = 0; i < requestCount; i++) {
+                String idempotencyKey = UUID.randomUUID()
+                        .toString();
+
+                futures.add(executorService.submit(() -> 주문_결과를_반환한다(
+                        user.accessToken(),
+                        idempotencyKey,
+                        ready,
+                        start
+                )));
+            }
+
+            assertThat(ready.await(
+                    1,
+                    TimeUnit.SECONDS
+            )).isTrue();
+            start.countDown();
+
+            for (Future<OrderRequestResult> future : futures) {
+                results.add(future.get(
+                        10,
+                        TimeUnit.SECONDS
+                ));
+            }
+        } finally {
+            executorService.shutdownNow();
+        }
+
+        List<Order> orders = orderRepository.findAll();
+        List<PointHistory> histories = pointHistoryRepository.findAll();
+        Point point = pointRepository.findByMemberId(user.member()
+                        .getId())
+                .orElseThrow();
+        long successCount = results.stream()
+                .filter(result -> result.status() == 200)
+                .count();
+        long successfulOrderTotal = orders.stream()
+                .mapToLong(Order::getTotalAmount)
+                .sum();
+        long usedPointTotal = histories.stream()
+                .mapToLong(history -> -history.getAmount())
+                .sum();
+
+        assertThat(successCount).isEqualTo(1L);
+        assertThat(results)
+                .filteredOn(result -> result.status() != 200)
+                .extracting(OrderRequestResult::code)
+                .containsOnly("CART_EMPTY");
+        assertThat(orders).hasSize(1);
+        assertThat(orderItemRepository.count()).isEqualTo(1L);
+        assertThat(paymentRepository.count()).isEqualTo(1L);
+        assertThat(histories).hasSize(1);
+        assertThat(successfulOrderTotal).isEqualTo(orderAmount);
+        assertThat(usedPointTotal).isEqualTo(successfulOrderTotal);
+        assertThat(histories.getFirst()
+                .getBalanceAfter()).isEqualTo(initialBalance - usedPointTotal);
+        assertThat(point.getBalance()).isEqualTo(initialBalance - usedPointTotal);
+        assertThat(point.getBalance()).isNotNegative();
+        assertThat(cartItemRepository.findAllByCart_IdOrderByIdAsc(cart.getId()))
+                .isEmpty();
+    }
+
     @Test
     void 주문_시점의_메뉴_가격과_이름으로_재검증하고_주문_항목에_스냅샷을_남긴다()
             throws Exception {
@@ -816,26 +910,23 @@ class OrderControllerIntegrationTest {
         String content = result.getResponse()
                 .getContentAsString(StandardCharsets.UTF_8);
 
-        if (status != 200) {
-            return new OrderRequestResult(
-                    status,
-                    null,
-                    null
-            );
-        }
-
-        Number orderId = JsonPath.read(
-                content,
-                "$.data.orderId"
-        );
         String code = JsonPath.read(
                 content,
                 "$.code"
         );
+        Long orderId = null;
+
+        if (status == 200) {
+            Number parsedOrderId = JsonPath.read(
+                    content,
+                    "$.data.orderId"
+            );
+            orderId = parsedOrderId.longValue();
+        }
 
         return new OrderRequestResult(
                 status,
-                orderId.longValue(),
+                orderId,
                 code
         );
     }
