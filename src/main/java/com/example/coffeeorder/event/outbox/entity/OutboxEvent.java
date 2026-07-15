@@ -151,6 +151,15 @@ public class OutboxEvent extends BaseEntity {
         this.nextRetryAt = nextRetryAt;
     }
 
+    public void reserveForPublish(LocalDateTime reservedUntil) {
+        if (reservedUntil == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+
+        this.status = OutboxStatus.PENDING;
+        this.nextRetryAt = reservedUntil;
+    }
+
     public void resetForRetry(LocalDateTime nextRetryAt) {
         if (status != OutboxStatus.FAILED) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);

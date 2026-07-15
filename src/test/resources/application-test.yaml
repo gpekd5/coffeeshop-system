@@ -23,3 +23,8 @@ app:
     enabled: false
   mock-order-event:
     enabled: true
+  kafka-order-event:
+    publisher:
+      enabled: false
+    consumer:
+      enabled: false

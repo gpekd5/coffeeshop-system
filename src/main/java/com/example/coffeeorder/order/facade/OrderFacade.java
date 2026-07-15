@@ -4,7 +4,6 @@ import java.util.UUID;
 
 import com.example.coffeeorder.common.exception.BusinessException;
 import com.example.coffeeorder.common.exception.ErrorCode;
-import com.example.coffeeorder.event.service.OrderEventDeliveryService;
 import com.example.coffeeorder.order.dto.response.OrderCreateResult;
 import com.example.coffeeorder.order.service.OrderTransactionService;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -16,14 +15,9 @@ public class OrderFacade {
     private static final int MAX_IDEMPOTENCY_KEY_LENGTH = 100;
 
     private final OrderTransactionService orderTransactionService;
-    private final OrderEventDeliveryService orderEventDeliveryService;
 
-    public OrderFacade(
-            OrderTransactionService orderTransactionService,
-            OrderEventDeliveryService orderEventDeliveryService
-    ) {
+    public OrderFacade(OrderTransactionService orderTransactionService) {
         this.orderTransactionService = orderTransactionService;
-        this.orderEventDeliveryService = orderEventDeliveryService;
     }
 
     public OrderCreateResult createOrder(
@@ -39,11 +33,6 @@ public class OrderFacade {
                     normalizedIdempotencyKey
             );
 
-            sendOrderCompletedEventIfCreated(
-                    memberId,
-                    result
-            );
-
             return result;
         } catch (DataIntegrityViolationException exception) {
             return orderTransactionService.findProcessedOrder(
@@ -51,20 +40,6 @@ public class OrderFacade {
                     normalizedIdempotencyKey
             );
         }
-    }
-
-    private void sendOrderCompletedEventIfCreated(
-            Long memberId,
-            OrderCreateResult result
-    ) {
-        if (result.alreadyProcessed()) {
-            return;
-        }
-
-        orderEventDeliveryService.sendOrderCompletedEvent(
-                memberId,
-                result.response()
-        );
     }
 
     private String normalizeIdempotencyKey(String idempotencyKey) {

@@ -82,6 +82,26 @@ public class OutboxEventService {
         );
     }
 
+    @Transactional
+    public List<OutboxEvent> reservePublishableEventsForPublish(
+            LocalDateTime now,
+            int limit,
+            long publishLeaseSeconds
+    ) {
+        validateLimit(limit);
+        validatePublishLeaseSeconds(publishLeaseSeconds);
+
+        List<OutboxEvent> events = findPublishableEventsForUpdate(
+                now,
+                limit
+        );
+        LocalDateTime reservedUntil = now.plusSeconds(publishLeaseSeconds);
+
+        events.forEach(event -> event.reserveForPublish(reservedUntil));
+
+        return events;
+    }
+
     @Transactional(readOnly = true)
     public List<OutboxEvent> findFailedEvents() {
         return outboxEventRepository.findAllByStatusOrderByCreatedAtAsc(
@@ -136,6 +156,12 @@ public class OutboxEventService {
 
     private void validateLimit(int limit) {
         if (limit < MIN_FETCH_LIMIT) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+    }
+
+    private void validatePublishLeaseSeconds(long publishLeaseSeconds) {
+        if (publishLeaseSeconds < 1) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);
         }
     }

@@ -266,9 +266,11 @@ Consumer는 `eventId`를 기준으로 이미 처리한 이벤트인지 확인한
 | Redis Set | 빠르고 구현이 비교적 간단하다. | TTL과 Redis 장애를 고려해야 한다. |
 | 외부 API 자체 멱등키 | 외부 시스템에서 최종 중복을 차단할 수 있다. | 외부 시스템이 멱등성을 지원해야 한다. |
 
-초기 2차 구현에서는 처리 Event ID를 DB에 저장하거나 외부 Mock API에 `eventId`를 전달해 멱등성을 검증한다.
+초기 2차 구현에서는 `processed_kafka_events` 테이블에 처리 Event ID를 저장하고,
+외부 Mock API에는 동일한 `eventId`를 전달해 멱등성을 검증한다.
 
-구체적인 구현 방식은 Kafka 구현 단계에서 확정한다.
+`COMPLETED` 상태의 Event ID가 다시 수신되면 외부 API 호출을 생략하고,
+`FAILED` 상태의 Event ID는 Kafka 재시도 또는 재수신 시 다시 처리한다.
 
 ---
 
@@ -291,6 +293,8 @@ Dead Letter Topic 이벤트에는 다음 정보가 유지되어야 한다.
 - 실패 원인
 - 재시도 횟수
 - 최종 실패 시각
+
+구현에서는 Dead Letter Topic으로 이동한 이벤트를 `dead_letter_order_events`에 저장한다.
 
 무한 재시도는 특정 실패 이벤트가 Consumer 처리를 계속 막을 수 있으므로 사용하지 않는다.
 

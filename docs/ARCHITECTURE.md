@@ -205,16 +205,27 @@ com.example.coffeeorder
 OrderController
 → OrderFacade
 → OrderTransactionService
-→ OrderEventDeliveryService
+→ OutboxEventService
+
+OutboxPublisherScheduler
+→ OutboxPublisherService
+→ OrderCompletedEventProducer
+→ Kafka
+
+OrderCompletedEventConsumer
+→ OrderCompletedEventProcessor
 → ExternalOrderEventClient
 ```
 
 | 구성요소 | 책임 |
 |---|---|
 | `OrderController` | 주문 요청과 응답 처리 |
-| `OrderFacade` | 주문 DB 처리와 외부 전송 순서 제어 |
+| `OrderFacade` | 주문 멱등키 검증과 DB 처리 위임 |
 | `OrderTransactionService` | 주문 관련 DB 작업을 하나의 트랜잭션으로 처리 |
-| `OrderEventDeliveryService` | 주문 완료 이벤트 생성, 외부 전송 및 전송 로그 기록 |
+| `OutboxEventService` | 주문 완료 Outbox Event 저장, 발행 상태 관리 |
+| `OutboxPublisherService` | 발행 가능한 Outbox Event 예약 및 Kafka 발행 |
+| `OrderCompletedEventConsumer` | Kafka 주문 완료 이벤트 수신 |
+| `OrderCompletedEventProcessor` | Consumer 중복 처리 확인 및 외부 데이터 수집 API 호출 |
 | `ExternalOrderEventClient` | 외부 데이터 수집 API 호출 |
 
 ## 전체 처리 흐름
@@ -243,15 +254,14 @@ JWT 인증
 → 결제 저장
 → 포인트 이력 저장
 → 장바구니 항목 삭제
-→ 2차에서는 Outbox Event 저장
+→ Outbox Event 저장
 → Commit
 
         ↓
 
 [트랜잭션 밖]
 
-1차: 외부 Mock API 동기 호출
-2차: Outbox Publisher와 Kafka 비동기 처리
+Outbox Publisher와 Kafka Consumer 비동기 처리
 ```
 
 ## 하나의 트랜잭션으로 묶는 데이터
@@ -428,10 +438,19 @@ Consumer는 `eventId`를 기준으로 중복 이벤트를 처리하지 않도록
 - Outbox Event ID는 Kafka Event ID로 사용한다.
 - `(aggregate_type, aggregate_id, event_type)` Unique 제약으로 동일 주문의 `ORDER_COMPLETED` 이벤트 중복 저장을 차단한다.
 - Publisher는 `PENDING` 이벤트와 `next_retry_at`이 지난 `FAILED` 이벤트를 생성 순서대로 제한 개수만큼 조회한다.
-- Publisher가 이벤트를 조회할 때 DB 쓰기 잠금을 사용해 여러 Publisher가 같은 이벤트를 동시에 선택하는 위험을 줄인다.
+- Publisher가 이벤트를 조회할 때 DB 쓰기 잠금을 사용하고, 조회한 이벤트의 `next_retry_at`을 짧은 lease 만료 시각으로 변경해 여러 Publisher가 같은 이벤트를 동시에 선택하는 위험을 줄인다.
 - Kafka 발행 성공 시 `PUBLISHED`와 `published_at`을 기록한다.
 - Kafka 발행 실패 시 `FAILED`, `retry_count`, `next_retry_at`, `last_error`를 기록한다.
 - 재시도 한도를 초과해 `next_retry_at`이 없는 `FAILED` 이벤트는 자동 재시도 대상에서 제외하고 운영자가 수동 재처리한다.
+
+## Kafka Consumer 처리 기준
+
+- Consumer는 Kafka 메시지 Key 또는 Payload의 `eventId`를 처리 식별자로 사용한다.
+- `processed_kafka_events`에 `eventId`를 저장해 여러 Consumer 인스턴스가 같은 이벤트 처리 여부를 공유한다.
+- `COMPLETED` 이벤트가 다시 수신되면 외부 API를 재호출하지 않는다.
+- 외부 API 호출 실패나 Timeout은 `FAILED`로 기록하고 Kafka 재시도 정책에 따라 다시 처리한다.
+- 최대 재시도 이후 Dead Letter Topic으로 이동한 이벤트는 `dead_letter_order_events`에 원본 Topic, Payload, 실패 원인을 저장한다.
+- 외부 API 호출은 Consumer 처리 단계에서 실행하며 주문 DB 트랜잭션에 포함하지 않는다.
 
 ---
 
