@@ -21,3 +21,11 @@ app:
     secret: ${APP_JWT_SECRET:local-development-jwt-secret-key-please-change}
     access-token-expires-in-seconds: ${APP_JWT_ACCESS_TOKEN_EXPIRES_IN_SECONDS:1800}
     refresh-token-expires-in-seconds: ${APP_JWT_REFRESH_TOKEN_EXPIRES_IN_SECONDS:1209600}
+  external-order-event:
+    enabled: ${APP_EXTERNAL_ORDER_EVENT_ENABLED:true}
+    base-url: ${APP_EXTERNAL_ORDER_EVENT_BASE_URL:http://localhost:8080}
+    path: ${APP_EXTERNAL_ORDER_EVENT_PATH:/mock/v1/order-events}
+    connect-timeout-millis: ${APP_EXTERNAL_ORDER_EVENT_CONNECT_TIMEOUT_MILLIS:500}
+    response-timeout-millis: ${APP_EXTERNAL_ORDER_EVENT_RESPONSE_TIMEOUT_MILLIS:1000}
+  mock-order-event:
+    enabled: ${APP_MOCK_ORDER_EVENT_ENABLED:true}

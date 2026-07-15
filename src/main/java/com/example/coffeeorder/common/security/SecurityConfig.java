@@ -45,6 +45,10 @@ public class SecurityConfig {
                                 HttpMethod.GET,
                                 "/api/v1/menus/**"
                         ).permitAll()
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/mock/v1/order-events"
+                        ).permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )

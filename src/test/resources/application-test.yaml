@@ -19,3 +19,5 @@ spring:
 
 app:
   time-zone: Asia/Seoul
+  external-order-event:
+    enabled: false

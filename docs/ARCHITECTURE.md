@@ -205,6 +205,7 @@ com.example.coffeeorder
 OrderController
 → OrderFacade
 → OrderTransactionService
+→ OrderEventDeliveryService
 → ExternalOrderEventClient
 ```
 
@@ -213,6 +214,7 @@ OrderController
 | `OrderController` | 주문 요청과 응답 처리 |
 | `OrderFacade` | 주문 DB 처리와 외부 전송 순서 제어 |
 | `OrderTransactionService` | 주문 관련 DB 작업을 하나의 트랜잭션으로 처리 |
+| `OrderEventDeliveryService` | 주문 완료 이벤트 생성, 외부 전송 및 전송 로그 기록 |
 | `ExternalOrderEventClient` | 외부 데이터 수집 API 호출 |
 
 ## 전체 처리 흐름
@@ -382,7 +384,7 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 주문 Commit 성공
 → 외부 API 실패
 → 주문 상태 COMPLETED 유지
-→ 실패 로그 기록
+→ `external_order_event_logs`에 실패 로그 기록
 ```
 
 1차 구조에는 다음 한계가 있다.

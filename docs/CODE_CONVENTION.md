@@ -870,6 +870,7 @@ Facade는 여러 도메인을 조합하는 Use Case에 사용한다.
 OrderController
 → OrderFacade
 → OrderTransactionService
+→ OrderEventDeliveryService
 → ExternalOrderEventClient
 ```
 
@@ -880,6 +881,7 @@ OrderController
 | `OrderController` | 요청과 응답 처리 |
 | `OrderFacade` | 주문 처리와 외부 전송 순서 제어 |
 | `OrderTransactionService` | 주문 관련 DB 작업 처리 |
+| `OrderEventDeliveryService` | 주문 완료 이벤트 생성, 외부 전송 및 전송 로그 기록 |
 | `ExternalOrderEventClient` | 외부 데이터 수집 API 호출 |
 
 Facade에 직접 모든 비즈니스 로직을 작성하지 않는다.
