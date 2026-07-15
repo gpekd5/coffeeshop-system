@@ -1,8 +1,11 @@
 package com.example.coffeeorder.menu.controller;
 
+import java.util.List;
+
 import com.example.coffeeorder.common.response.ApiResponse;
 import com.example.coffeeorder.common.response.PageResponse;
 import com.example.coffeeorder.menu.dto.response.MenuResponse;
+import com.example.coffeeorder.menu.dto.response.PopularMenuResponse;
 import com.example.coffeeorder.menu.service.MenuService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,6 +22,18 @@ public class MenuController {
 
     public MenuController(MenuService menuService) {
         this.menuService = menuService;
+    }
+
+    @GetMapping("/popular")
+    public ResponseEntity<ApiResponse<List<PopularMenuResponse>>> getPopularMenus() {
+        List<PopularMenuResponse> response = menuService.getPopularMenus();
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "인기 메뉴 조회에 성공했습니다.",
+                        response
+                )
+        );
     }
 
     @GetMapping
