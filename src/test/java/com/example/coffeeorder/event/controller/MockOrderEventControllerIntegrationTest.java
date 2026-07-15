@@ -50,6 +50,57 @@ class MockOrderEventControllerIntegrationTest {
                 .andExpect(jsonPath("$.message").value("주문 이벤트 수신에 실패했습니다."));
     }
 
+    @Test
+    void delayMillis가_음수이면_실패_응답을_반환한다() throws Exception {
+        mockMvc.perform(
+                        post("/mock/v1/order-events")
+                                .param(
+                                        "delayMillis",
+                                        "-1"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(주문_완료_이벤트_JSON())
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message")
+                        .value("delayMillis는 0 이상 3000 이하만 허용됩니다."));
+    }
+
+    @Test
+    void delayMillis가_최대값을_초과하면_실패_응답을_반환한다() throws Exception {
+        mockMvc.perform(
+                        post("/mock/v1/order-events")
+                                .param(
+                                        "delayMillis",
+                                        "3001"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(주문_완료_이벤트_JSON())
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message")
+                        .value("delayMillis는 0 이상 3000 이하만 허용됩니다."));
+    }
+
+    @Test
+    void status가_HTTP_상태코드_범위를_벗어나면_실패_응답을_반환한다() throws Exception {
+        mockMvc.perform(
+                        post("/mock/v1/order-events")
+                                .param(
+                                        "status",
+                                        "600"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(주문_완료_이벤트_JSON())
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message")
+                        .value("status는 100 이상 599 이하만 허용됩니다."));
+    }
+
     private String 주문_완료_이벤트_JSON() {
         return """
                 {

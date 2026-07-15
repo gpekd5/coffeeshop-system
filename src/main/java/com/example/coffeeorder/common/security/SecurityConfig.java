@@ -2,6 +2,7 @@ package com.example.coffeeorder.common.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -19,7 +20,8 @@ public class SecurityConfig {
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
             AuthenticationEntryPoint authenticationEntryPoint,
-            AccessDeniedHandler accessDeniedHandler
+            AccessDeniedHandler accessDeniedHandler,
+            Environment environment
     )
             throws Exception {
         return http
@@ -34,28 +36,43 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler)
                 )
-                .authorizeHttpRequests(requests -> requests
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/v1/auth/signup",
-                                "/api/v1/auth/login",
-                                "/api/v1/auth/reissue"
-                        ).permitAll()
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/v1/menus/**"
-                        ).permitAll()
-                        .requestMatchers(
+                .authorizeHttpRequests(requests -> {
+                    requests.requestMatchers(
+                            HttpMethod.POST,
+                            "/api/v1/auth/signup",
+                            "/api/v1/auth/login",
+                            "/api/v1/auth/reissue"
+                    ).permitAll();
+                    requests.requestMatchers(
+                            HttpMethod.GET,
+                            "/api/v1/menus/**"
+                    ).permitAll();
+
+                    if (isMockOrderEventPublic(environment)) {
+                        requests.requestMatchers(
                                 HttpMethod.POST,
                                 "/mock/v1/order-events"
-                        ).permitAll()
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                        .anyRequest().authenticated()
-                )
+                        ).permitAll();
+                    }
+
+                    requests.requestMatchers("/api/v1/admin/**").hasRole("ADMIN");
+                    requests.anyRequest().authenticated();
+                })
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class
                 )
                 .build();
+    }
+
+    private boolean isMockOrderEventPublic(Environment environment) {
+        boolean enabled = environment.getProperty(
+                "app.mock-order-event.enabled",
+                Boolean.class,
+                false
+        );
+
+        return enabled && (environment.matchesProfiles("local")
+                || environment.matchesProfiles("test"));
     }
 }

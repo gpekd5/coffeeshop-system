@@ -19,3 +19,7 @@ spring:
       port: ${SPRING_DATA_REDIS_PORT:6379}
       password: ${SPRING_DATA_REDIS_PASSWORD:}
       timeout: ${SPRING_DATA_REDIS_TIMEOUT:2s}
+
+app:
+  mock-order-event:
+    enabled: ${APP_MOCK_ORDER_EVENT_ENABLED:true}

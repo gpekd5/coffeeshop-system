@@ -13,9 +13,13 @@ public record MockOrderEventResponse(
     }
 
     public static MockOrderEventResponse failure() {
+        return failure("주문 이벤트 수신에 실패했습니다.");
+    }
+
+    public static MockOrderEventResponse failure(String message) {
         return new MockOrderEventResponse(
                 false,
-                "주문 이벤트 수신에 실패했습니다."
+                message
         );
     }
 }

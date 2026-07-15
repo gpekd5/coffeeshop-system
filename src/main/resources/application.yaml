@@ -28,4 +28,4 @@ app:
     connect-timeout-millis: ${APP_EXTERNAL_ORDER_EVENT_CONNECT_TIMEOUT_MILLIS:500}
     response-timeout-millis: ${APP_EXTERNAL_ORDER_EVENT_RESPONSE_TIMEOUT_MILLIS:1000}
   mock-order-event:
-    enabled: ${APP_MOCK_ORDER_EVENT_ENABLED:true}
+    enabled: ${APP_MOCK_ORDER_EVENT_ENABLED:false}

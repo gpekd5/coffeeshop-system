@@ -21,3 +21,5 @@ app:
   time-zone: Asia/Seoul
   external-order-event:
     enabled: false
+  mock-order-event:
+    enabled: true
