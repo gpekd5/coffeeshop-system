@@ -14,6 +14,7 @@ import com.example.coffeeorder.cart.repository.CartItemRepository;
 import com.example.coffeeorder.cart.repository.CartRepository;
 import com.example.coffeeorder.common.exception.BusinessException;
 import com.example.coffeeorder.common.exception.ErrorCode;
+import com.example.coffeeorder.event.outbox.service.OutboxEventService;
 import com.example.coffeeorder.member.entity.Member;
 import com.example.coffeeorder.member.repository.MemberRepository;
 import com.example.coffeeorder.menu.entity.Menu;
@@ -45,6 +46,7 @@ public class OrderTransactionService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final PaymentRepository paymentRepository;
+    private final OutboxEventService outboxEventService;
     private final Clock clock;
 
     public OrderTransactionService(
@@ -57,6 +59,7 @@ public class OrderTransactionService {
             OrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
             PaymentRepository paymentRepository,
+            OutboxEventService outboxEventService,
             Clock clock
     ) {
         this.memberRepository = memberRepository;
@@ -68,6 +71,7 @@ public class OrderTransactionService {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.paymentRepository = paymentRepository;
+        this.outboxEventService = outboxEventService;
         this.clock = clock;
     }
 
@@ -142,15 +146,20 @@ public class OrderTransactionService {
         ));
         cartItemRepository.deleteAllByCart_Id(cart.getId());
 
-        return OrderCreateResult.created(
-                OrderCreateResponse.of(
-                        order,
-                        orderItems,
-                        payment,
-                        totalAmount,
-                        point.getBalance()
-                )
+        OrderCreateResponse response = OrderCreateResponse.of(
+                order,
+                orderItems,
+                payment,
+                totalAmount,
+                point.getBalance()
         );
+        outboxEventService.saveOrderCompletedEvent(
+                memberId,
+                response,
+                now
+        );
+
+        return OrderCreateResult.created(response);
     }
 
     @Transactional(readOnly = true)

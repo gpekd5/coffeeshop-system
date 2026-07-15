@@ -421,6 +421,18 @@ Kafka 발행 실패 시 주문 상태는 변경하지 않고 Outbox Event를 재
 
 Consumer는 `eventId`를 기준으로 중복 이벤트를 처리하지 않도록 한다.
 
+## Outbox 저장 및 재처리 기준
+
+- 주문 생성 트랜잭션 안에서 주문, 결제, 포인트 이력, 장바구니 삭제와 함께 `outbox_events`를 저장한다.
+- Outbox 저장에 실패하면 주문 트랜잭션 전체를 Rollback한다.
+- Outbox Event ID는 Kafka Event ID로 사용한다.
+- `(aggregate_type, aggregate_id, event_type)` Unique 제약으로 동일 주문의 `ORDER_COMPLETED` 이벤트 중복 저장을 차단한다.
+- Publisher는 `PENDING` 이벤트와 `next_retry_at`이 지난 `FAILED` 이벤트를 생성 순서대로 제한 개수만큼 조회한다.
+- Publisher가 이벤트를 조회할 때 DB 쓰기 잠금을 사용해 여러 Publisher가 같은 이벤트를 동시에 선택하는 위험을 줄인다.
+- Kafka 발행 성공 시 `PUBLISHED`와 `published_at`을 기록한다.
+- Kafka 발행 실패 시 `FAILED`, `retry_count`, `next_retry_at`, `last_error`를 기록한다.
+- 재시도 한도를 초과해 `next_retry_at`이 없는 `FAILED` 이벤트는 자동 재시도 대상에서 제외하고 운영자가 수동 재처리한다.
+
 ---
 
 # 8. 조회, 장애 및 테스트 전략

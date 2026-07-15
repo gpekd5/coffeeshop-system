@@ -2001,10 +2001,11 @@ ORDER_COMPLETED
 
 - 주문 트랜잭션 안에서 Kafka에 직접 발행하지 않는다.
 - 주문 데이터와 Outbox Event를 동일한 DB 트랜잭션에서 저장한다.
-- 별도의 Outbox Publisher가 `PENDING` 이벤트를 조회한다.
+- 별도의 Outbox Publisher가 `PENDING` 이벤트와 `next_retry_at`이 지난 `FAILED` 이벤트를 조회한다.
 - Publisher가 Kafka 발행에 성공하면 상태를 `PUBLISHED`로 변경한다.
 - 발행 실패 시 `retry_count`, `next_retry_at`, `last_error`를 갱신한다.
-- 재시도 한도를 초과하면 상태를 `FAILED`로 변경한다.
+- 재시도 한도를 초과한 `FAILED` 이벤트는 자동 재시도 대상에서 제외하고 수동 재처리 대상으로 남긴다.
+- 동일 주문 완료 이벤트는 `(aggregateType, aggregateId, eventType)` 기준으로 중복 저장하지 않는다.
 - Kafka 발행 실패가 완료된 주문 상태를 변경하지 않는다.
 - Consumer는 `eventId`를 기준으로 중복 소비를 방지한다.
 - Consumer 처리 실패 시 재시도 또는 Dead Letter Topic을 사용한다.
