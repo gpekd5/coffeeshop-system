@@ -1,10 +1,13 @@
 package com.example.coffeeorder.event.outbox.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -13,7 +16,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.example.coffeeorder.common.security.JwtTokenProvider;
 import com.example.coffeeorder.common.security.TokenStore;
 import com.example.coffeeorder.event.outbox.entity.OutboxEvent;
+import com.example.coffeeorder.event.outbox.entity.OutboxStatus;
 import com.example.coffeeorder.event.outbox.repository.OutboxEventRepository;
+import com.example.coffeeorder.event.outbox.service.OutboxEventService;
 import com.example.coffeeorder.member.entity.Member;
 import com.example.coffeeorder.member.entity.MemberRole;
 import com.example.coffeeorder.member.repository.MemberRepository;
@@ -49,6 +54,9 @@ class AdminOutboxEventControllerIntegrationTest {
 
     @Autowired
     private OutboxEventRepository outboxEventRepository;
+
+    @Autowired
+    private OutboxEventService outboxEventService;
 
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
@@ -186,6 +194,149 @@ class AdminOutboxEventControllerIntegrationTest {
 
         mockMvc.perform(
                         get("/api/v1/admin/outbox-events")
+                                .header(
+                                        AUTHORIZATION_HEADER,
+                                        BEARER_PREFIX + member.accessToken()
+                                )
+                )
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void 관리자는_FAILED_Outbox_이벤트를_수동_재처리할_수_있다() throws Exception {
+        TestMember admin = 회원과_토큰을_발급한다(
+                "retry-admin@example.com",
+                "관리자",
+                MemberRole.ADMIN
+        );
+        OutboxEvent failedEvent = 이벤트를_저장한다(10L);
+        failedEvent.markPublishFailed(
+                "Kafka unavailable",
+                null
+        );
+        outboxEventRepository.saveAndFlush(failedEvent);
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/admin/outbox-events/{eventId}/retry",
+                                failedEvent.getId()
+                        )
+                                .header(
+                                        AUTHORIZATION_HEADER,
+                                        BEARER_PREFIX + admin.accessToken()
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.message").value("Outbox 이벤트 재처리 요청에 성공했습니다."))
+                .andExpect(jsonPath("$.data.eventId").value(failedEvent.getId()))
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andExpect(jsonPath("$.data.retryCount").value(1))
+                .andExpect(jsonPath("$.data.nextRetryAt").exists())
+                .andExpect(jsonPath("$.data.lastError").value("Kafka unavailable"))
+                .andExpect(jsonPath("$.data.publishedAt").isEmpty());
+
+        OutboxEvent retriedEvent = outboxEventRepository.findById(failedEvent.getId())
+                .orElseThrow();
+        LocalDateTime publisherNow = LocalDateTime.now()
+                .plusSeconds(1);
+        List<OutboxEvent> publishableEvents =
+                outboxEventService.findPublishableEventsForUpdate(
+                        publisherNow,
+                        10
+                );
+
+        assertThat(retriedEvent.getStatus()).isEqualTo(OutboxStatus.PENDING);
+        assertThat(retriedEvent.getRetryCount()).isEqualTo(1);
+        assertThat(retriedEvent.isPublishable(publisherNow)).isTrue();
+        assertThat(publishableEvents)
+                .extracting(OutboxEvent::getId)
+                .contains(failedEvent.getId());
+    }
+
+    @Test
+    void PUBLISHED_Outbox_이벤트는_수동_재처리할_수_없다() throws Exception {
+        TestMember admin = 회원과_토큰을_발급한다(
+                "retry-published-admin@example.com",
+                "관리자",
+                MemberRole.ADMIN
+        );
+        OutboxEvent publishedEvent = 이벤트를_저장한다(11L);
+        publishedEvent.markPublished(LocalDateTime.of(
+                2026,
+                7,
+                17,
+                12,
+                0
+        ));
+        outboxEventRepository.saveAndFlush(publishedEvent);
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/admin/outbox-events/{eventId}/retry",
+                                publishedEvent.getId()
+                        )
+                                .header(
+                                        AUTHORIZATION_HEADER,
+                                        BEARER_PREFIX + admin.accessToken()
+                                )
+                )
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("OUTBOX_EVENT_RETRY_NOT_ALLOWED"));
+
+        OutboxEvent event = outboxEventRepository.findById(publishedEvent.getId())
+                .orElseThrow();
+
+        assertThat(event.getStatus()).isEqualTo(OutboxStatus.PUBLISHED);
+    }
+
+    @Test
+    void 존재하지_않는_Outbox_이벤트_재처리는_실패한다() throws Exception {
+        TestMember admin = 회원과_토큰을_발급한다(
+                "retry-not-found-admin@example.com",
+                "관리자",
+                MemberRole.ADMIN
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/admin/outbox-events/{eventId}/retry",
+                                UUID.randomUUID()
+                                        .toString()
+                        )
+                                .header(
+                                        AUTHORIZATION_HEADER,
+                                        BEARER_PREFIX + admin.accessToken()
+                                )
+                )
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("OUTBOX_EVENT_NOT_FOUND"));
+    }
+
+    @Test
+    void 일반_사용자는_Outbox_이벤트를_수동_재처리할_수_없다() throws Exception {
+        TestMember member = 회원과_토큰을_발급한다(
+                "retry-member@example.com",
+                "일반 회원",
+                MemberRole.USER
+        );
+        OutboxEvent failedEvent = 이벤트를_저장한다(12L);
+        failedEvent.markPublishFailed(
+                "Kafka unavailable",
+                null
+        );
+        outboxEventRepository.saveAndFlush(failedEvent);
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/admin/outbox-events/{eventId}/retry",
+                                failedEvent.getId()
+                        )
                                 .header(
                                         AUTHORIZATION_HEADER,
                                         BEARER_PREFIX + member.accessToken()

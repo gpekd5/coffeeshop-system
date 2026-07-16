@@ -3,9 +3,13 @@ package com.example.coffeeorder.event.outbox.controller;
 import com.example.coffeeorder.common.response.ApiResponse;
 import com.example.coffeeorder.common.response.PageResponse;
 import com.example.coffeeorder.event.outbox.dto.response.OutboxEventResponse;
+import com.example.coffeeorder.event.outbox.entity.OutboxEvent;
+import com.example.coffeeorder.event.outbox.service.OutboxEventService;
 import com.example.coffeeorder.event.outbox.service.OutboxEventQueryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,9 +19,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminOutboxEventController {
 
     private final OutboxEventQueryService outboxEventQueryService;
+    private final OutboxEventService outboxEventService;
 
-    public AdminOutboxEventController(OutboxEventQueryService outboxEventQueryService) {
+    public AdminOutboxEventController(
+            OutboxEventQueryService outboxEventQueryService,
+            OutboxEventService outboxEventService
+    ) {
         this.outboxEventQueryService = outboxEventQueryService;
+        this.outboxEventService = outboxEventService;
     }
 
     @GetMapping
@@ -38,6 +47,18 @@ public class AdminOutboxEventController {
         return ResponseEntity.ok(ApiResponse.success(
                 "Outbox 이벤트 목록 조회에 성공했습니다.",
                 response
+        ));
+    }
+
+    @PostMapping("/{eventId}/retry")
+    public ResponseEntity<ApiResponse<OutboxEventResponse>> retryOutboxEvent(
+            @PathVariable String eventId
+    ) {
+        OutboxEvent event = outboxEventService.resetFailedEventForRetry(eventId);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Outbox 이벤트 재처리 요청에 성공했습니다.",
+                OutboxEventResponse.from(event)
         ));
     }
 }

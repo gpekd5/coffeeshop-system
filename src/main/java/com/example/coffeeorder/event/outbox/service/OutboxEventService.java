@@ -132,16 +132,18 @@ public class OutboxEventService {
     }
 
     @Transactional
-    public void resetFailedEventForRetry(String eventId) {
+    public OutboxEvent resetFailedEventForRetry(String eventId) {
         OutboxEvent event = findEvent(eventId);
 
         event.resetForRetry(LocalDateTime.now(clock));
+
+        return event;
     }
 
     private OutboxEvent findEvent(String eventId) {
         return outboxEventRepository.findById(eventId)
                 .orElseThrow(() -> new BusinessException(
-                        ErrorCode.INTERNAL_SERVER_ERROR
+                        ErrorCode.OUTBOX_EVENT_NOT_FOUND
                 ));
     }
 
