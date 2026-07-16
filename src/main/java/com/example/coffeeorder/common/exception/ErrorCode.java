@@ -244,6 +244,11 @@ public enum ErrorCode {
             "INVALID_OUTBOX_STATUS",
             "유효하지 않은 Outbox Event 상태입니다."
     ),
+    INVALID_KAFKA_EVENT_PROCESSING_STATUS(
+            HttpStatus.BAD_REQUEST,
+            "INVALID_KAFKA_EVENT_PROCESSING_STATUS",
+            "유효하지 않은 Kafka Event 처리 상태입니다."
+    ),
     OUTBOX_EVENT_NOT_FOUND(
             HttpStatus.NOT_FOUND,
             "OUTBOX_EVENT_NOT_FOUND",

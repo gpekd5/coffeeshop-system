@@ -2151,6 +2151,88 @@ updatedAt
 
 ---
 
+## 8.7 관리자 Kafka 이벤트 처리 이력 조회
+
+- Method: `GET`
+- Path: `/api/v1/admin/processed-kafka-events`
+- Auth: 필요
+- Role: `ADMIN`
+
+### 설명
+
+Kafka Consumer가 수신한 주문 이벤트 처리 이력을 운영 관점에서 조회한다.
+
+At-Least-Once 전송에서는 동일 이벤트가 중복 수신되거나, `PROCESSING` lease 만료 후 재처리될 수 있다.
+이 API는 `processed_kafka_events`에 저장된 상태, 처리 시도 횟수, 마지막 오류, lease 만료 시각을 확인하기 위한 조회 API이며,
+이벤트 상태를 변경하지 않는다.
+
+### Query Parameters
+
+| 필드 | 타입 | 필수 | 기본값 | 설명 |
+|---|---|---:|---:|---|
+| `status` | String | N | 전체 | Kafka 이벤트 처리 상태. `PROCESSING`, `COMPLETED`, `FAILED` |
+| `page` | Integer | N | `0` | 페이지 번호 |
+| `size` | Integer | N | `20` | 페이지 크기 |
+| `sort` | String | N | `createdAt,desc` | 정렬 기준 |
+
+정렬 가능한 필드:
+
+```text
+eventId
+eventType
+status
+topic
+kafkaPartition
+kafkaOffset
+attemptCount
+processingDeadlineAt
+processedAt
+createdAt
+updatedAt
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "Kafka 이벤트 처리 이력 조회에 성공했습니다.",
+  "data": {
+    "content": [
+      {
+        "eventId": "4fb6a592-65e8-4e5d-8833-77a4ca1f661a",
+        "eventType": "ORDER_COMPLETED",
+        "status": "FAILED",
+        "topic": "order.completed",
+        "kafkaPartition": 0,
+        "kafkaOffset": 15,
+        "attemptCount": 2,
+        "lastError": "External API 500",
+        "processingDeadlineAt": null,
+        "processedAt": null,
+        "createdAt": "2026-07-13T14:00:00"
+      }
+    ],
+    "page": 0,
+    "size": 20,
+    "totalElements": 1,
+    "totalPages": 1
+  }
+}
+```
+
+### Error
+
+| Status | Code | 설명 |
+|---:|---|---|
+| `400` | `INVALID_KAFKA_EVENT_PROCESSING_STATUS` | 유효하지 않은 Kafka 이벤트 처리 상태 |
+| `400` | `INVALID_PAGE_REQUEST` | 잘못된 페이징 요청 |
+| `401` | `UNAUTHORIZED` | 인증되지 않은 사용자 |
+| `403` | `FORBIDDEN` | 관리자 권한 없음 |
+
+---
+
 # 9. 멱등성 정책
 
 ## 9.1 주문 멱등키
@@ -2192,6 +2274,7 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 | 인기 메뉴 조회 | O | O | O |
 | Outbox 이벤트 운영 조회 | X | O | X |
 | Outbox 이벤트 수동 재처리 | X | O | X |
+| Kafka 이벤트 처리 이력 조회 | X | O | X |
 
 ---
 
@@ -2282,6 +2365,7 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 | `502` | `EXTERNAL_DATA_COLLECTION_FAILED` | 외부 데이터 수집 API 호출 실패 |
 | `504` | `EXTERNAL_DATA_COLLECTION_TIMEOUT` | 외부 데이터 수집 API 타임아웃 |
 | `400` | `INVALID_OUTBOX_STATUS` | 유효하지 않은 Outbox Event 상태 |
+| `400` | `INVALID_KAFKA_EVENT_PROCESSING_STATUS` | 유효하지 않은 Kafka Event 처리 상태 |
 | `404` | `OUTBOX_EVENT_NOT_FOUND` | Outbox Event를 찾을 수 없음 |
 | `409` | `OUTBOX_EVENT_RETRY_NOT_ALLOWED` | 재처리할 수 없는 Outbox Event 상태 |
 | `500` | `OUTBOX_EVENT_SAVE_FAILED` | Outbox Event 저장 실패 |
@@ -2375,6 +2459,7 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 |---|---|---|---|
 | `GET` | `/api/v1/admin/outbox-events` | Outbox 이벤트 목록 조회 | ADMIN |
 | `POST` | `/api/v1/admin/outbox-events/{eventId}/retry` | Outbox 이벤트 수동 재처리 | ADMIN |
+| `GET` | `/api/v1/admin/processed-kafka-events` | Kafka 이벤트 처리 이력 조회 | ADMIN |
 
 ---
 
