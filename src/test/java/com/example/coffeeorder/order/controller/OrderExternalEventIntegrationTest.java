@@ -9,9 +9,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import com.example.coffeeorder.cart.entity.Cart;
 import com.example.coffeeorder.cart.entity.CartItem;
@@ -22,8 +20,8 @@ import com.example.coffeeorder.common.security.TokenStore;
 import com.example.coffeeorder.event.client.ExternalOrderEventClient;
 import com.example.coffeeorder.event.client.ExternalOrderEventSendResult;
 import com.example.coffeeorder.event.dto.OrderCompletedEventRequest;
-import com.example.coffeeorder.event.entity.ExternalOrderEventLog;
-import com.example.coffeeorder.event.entity.ExternalOrderEventStatus;
+import com.example.coffeeorder.event.outbox.entity.OutboxStatus;
+import com.example.coffeeorder.event.outbox.repository.OutboxEventRepository;
 import com.example.coffeeorder.event.repository.ExternalOrderEventLogRepository;
 import com.example.coffeeorder.member.entity.Member;
 import com.example.coffeeorder.member.repository.MemberRepository;
@@ -49,7 +47,6 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -99,6 +96,9 @@ class OrderExternalEventIntegrationTest {
     private ExternalOrderEventLogRepository externalOrderEventLogRepository;
 
     @Autowired
+    private OutboxEventRepository outboxEventRepository;
+
+    @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
     @Autowired
@@ -109,6 +109,7 @@ class OrderExternalEventIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        outboxEventRepository.deleteAll();
         externalOrderEventLogRepository.deleteAll();
         pointHistoryRepository.deleteAll();
         paymentRepository.deleteAll();
@@ -127,7 +128,7 @@ class OrderExternalEventIntegrationTest {
     }
 
     @Test
-    void 주문_커밋_이후_트랜잭션_밖에서_외부_주문_이벤트를_전송하고_상태를_기록한다()
+    void 주문_생성은_외부_API를_직접_호출하지_않고_Outbox_이벤트를_저장한다()
             throws Exception {
         TestUser user = 회원과_포인트와_토큰을_생성한다(
                 "user@example.com",
@@ -161,16 +162,18 @@ class OrderExternalEventIntegrationTest {
                 )
                 .andExpect(status().isOk());
 
-        ExternalOrderEventLog log = externalOrderEventLogRepository.findAll()
-                .getFirst();
-
-        assertThat(externalOrderEventClient.requestCount()).isEqualTo(1);
-        assertThat(externalOrderEventClient.wasTransactionActive()).isFalse();
-        assertThat(externalOrderEventClient.wasOrderVisible()).isTrue();
-        assertThat(externalOrderEventClient.lastRequest()
-                .orderId()).isEqualTo(log.getOrderId());
-        assertThat(log.getStatus()).isEqualTo(ExternalOrderEventStatus.SUCCESS);
-        assertThat(log.getResponseStatusCode()).isEqualTo(200);
+        assertThat(externalOrderEventClient.requestCount()).isZero();
+        assertThat(externalOrderEventLogRepository.findAll()).isEmpty();
+        assertThat(outboxEventRepository.findAll())
+                .hasSize(1)
+                .first()
+                .satisfies(event -> {
+                    assertThat(event.getStatus()).isEqualTo(OutboxStatus.PENDING);
+                    assertThat(event.getAggregateId()).isEqualTo(orderRepository
+                            .findAll()
+                            .getFirst()
+                            .getId());
+                });
     }
 
     private TestUser 회원과_포인트와_토큰을_생성한다(
@@ -216,34 +219,18 @@ class OrderExternalEventIntegrationTest {
 
         @Bean
         @Primary
-        RecordingExternalOrderEventClient externalOrderEventClient(
-                OrderRepository orderRepository
-        ) {
-            return new RecordingExternalOrderEventClient(orderRepository);
+        RecordingExternalOrderEventClient externalOrderEventClient() {
+            return new RecordingExternalOrderEventClient();
         }
     }
 
     static class RecordingExternalOrderEventClient implements ExternalOrderEventClient {
 
-        private final OrderRepository orderRepository;
         private final AtomicInteger requestCount = new AtomicInteger(0);
-        private final AtomicBoolean transactionActive = new AtomicBoolean(true);
-        private final AtomicBoolean orderVisible = new AtomicBoolean(false);
-        private final AtomicReference<OrderCompletedEventRequest> lastRequest =
-                new AtomicReference<>();
-
-        RecordingExternalOrderEventClient(OrderRepository orderRepository) {
-            this.orderRepository = orderRepository;
-        }
 
         @Override
         public ExternalOrderEventSendResult send(OrderCompletedEventRequest request) {
             requestCount.incrementAndGet();
-            transactionActive.set(TransactionSynchronizationManager
-                    .isActualTransactionActive());
-            orderVisible.set(orderRepository.findById(request.orderId())
-                    .isPresent());
-            lastRequest.set(request);
 
             return ExternalOrderEventSendResult.success(
                     200,
@@ -253,25 +240,10 @@ class OrderExternalEventIntegrationTest {
 
         void reset() {
             requestCount.set(0);
-            transactionActive.set(true);
-            orderVisible.set(false);
-            lastRequest.set(null);
         }
 
         int requestCount() {
             return requestCount.get();
-        }
-
-        boolean wasTransactionActive() {
-            return transactionActive.get();
-        }
-
-        boolean wasOrderVisible() {
-            return orderVisible.get();
-        }
-
-        OrderCompletedEventRequest lastRequest() {
-            return lastRequest.get();
         }
     }
 

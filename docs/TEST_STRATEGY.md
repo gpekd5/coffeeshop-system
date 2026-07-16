@@ -1032,6 +1032,7 @@ Outbox PENDING
 
 - 실패 이벤트가 삭제되지 않는가?
 - 재시도 횟수가 증가하는가?
+- `last_error`와 `next_retry_at`이 기록되는가?
 - 다음 Publisher 실행에서 다시 조회되는가?
 - 최대 재시도 초과 시 자동 재시도 대상에서 제외되고 수동 재처리 대상으로 남는가?
 
@@ -1044,6 +1045,7 @@ Outbox PENDING
 검증 항목:
 
 - 동일 Event ID가 유지되는가?
+- Publisher가 조회한 이벤트를 lease로 예약해 동시에 같은 이벤트를 선택하지 않도록 하는가?
 - Kafka에 중복 발행될 수 있음을 고려하는가?
 - Consumer에서 중복 처리를 방지하는가?
 
@@ -1095,7 +1097,18 @@ Kafka Order Event
 
 - 중복 이벤트가 한 번만 처리되는가?
 - 처리 완료 Event ID가 저장되는가?
+- `processed_kafka_events`의 `COMPLETED` 상태를 기준으로 재호출을 생략하는가?
 - 동일 주문이 외부 시스템에 중복 반영되지 않는가?
+
+## 13.2.1 처리 중 이벤트 lease 만료
+
+`PROCESSING` 저장 후 Consumer가 종료되어 `complete()` 또는 `fail()`이 실행되지 않은 상황을 재현한다.
+
+검증 항목:
+
+- `processing_deadline_at`이 유효한 `PROCESSING` 이벤트는 중복 처리로 보고 건너뛰는가?
+- `processing_deadline_at`이 지난 `PROCESSING` 이벤트는 재처리하는가?
+- 재처리 후 외부 API가 호출되고 `COMPLETED` 또는 `FAILED`로 전이되는가?
 
 ---
 
@@ -1117,6 +1130,7 @@ Kafka Order Event
 - 최종 실패 이벤트가 Dead Letter Topic으로 이동하는가?
 - 원본 Event ID와 Payload가 유지되는가?
 - 실패 원인이 기록되는가?
+- `dead_letter_order_events`에 운영자가 확인할 수 있는 정보가 저장되는가?
 - 운영자가 재처리할 수 있는 정보를 포함하는가?
 
 ---

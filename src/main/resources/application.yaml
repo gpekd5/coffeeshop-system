@@ -5,6 +5,16 @@ spring:
     default: local
   jackson:
     time-zone: Asia/Seoul
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
+      enable-auto-commit: false
   jpa:
     open-in-view: false
 
@@ -29,3 +39,19 @@ app:
     response-timeout-millis: ${APP_EXTERNAL_ORDER_EVENT_RESPONSE_TIMEOUT_MILLIS:1000}
   mock-order-event:
     enabled: ${APP_MOCK_ORDER_EVENT_ENABLED:false}
+  kafka-order-event:
+    topic: ${APP_KAFKA_ORDER_EVENT_TOPIC:order.completed}
+    dead-letter-topic: ${APP_KAFKA_ORDER_EVENT_DLT:order.completed.DLT}
+    producer:
+      send-timeout-millis: ${APP_KAFKA_ORDER_EVENT_SEND_TIMEOUT_MILLIS:3000}
+    publisher:
+      enabled: ${APP_KAFKA_ORDER_EVENT_PUBLISHER_ENABLED:false}
+      batch-size: ${APP_KAFKA_ORDER_EVENT_PUBLISHER_BATCH_SIZE:10}
+      fixed-delay-millis: ${APP_KAFKA_ORDER_EVENT_PUBLISHER_FIXED_DELAY_MILLIS:5000}
+      publish-lease-seconds: ${APP_KAFKA_ORDER_EVENT_PUBLISH_LEASE_SECONDS:30}
+    consumer:
+      enabled: ${APP_KAFKA_ORDER_EVENT_CONSUMER_ENABLED:false}
+      group-id: ${APP_KAFKA_ORDER_EVENT_CONSUMER_GROUP_ID:coffee-order-event-consumer}
+      max-attempts: ${APP_KAFKA_ORDER_EVENT_CONSUMER_MAX_ATTEMPTS:3}
+      retry-interval-millis: ${APP_KAFKA_ORDER_EVENT_CONSUMER_RETRY_INTERVAL_MILLIS:1000}
+      processing-lease-seconds: ${APP_KAFKA_ORDER_EVENT_CONSUMER_PROCESSING_LEASE_SECONDS:30}

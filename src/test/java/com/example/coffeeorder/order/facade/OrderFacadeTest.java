@@ -2,7 +2,6 @@ package com.example.coffeeorder.order.facade;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -12,7 +11,6 @@ import java.util.UUID;
 
 import com.example.coffeeorder.common.exception.BusinessException;
 import com.example.coffeeorder.common.exception.ErrorCode;
-import com.example.coffeeorder.event.service.OrderEventDeliveryService;
 import com.example.coffeeorder.order.dto.response.OrderCreateResponse;
 import com.example.coffeeorder.order.dto.response.OrderCreateResult;
 import com.example.coffeeorder.order.entity.OrderChannel;
@@ -31,14 +29,11 @@ class OrderFacadeTest {
     @Mock
     private OrderTransactionService orderTransactionService;
 
-    @Mock
-    private OrderEventDeliveryService orderEventDeliveryService;
-
     @InjectMocks
     private OrderFacade orderFacade;
 
     @Test
-    void 신규_주문이_생성되면_외부_주문_완료_이벤트를_전송한다() {
+    void 신규_주문이_생성되면_주문_결과를_반환한다() {
         Long memberId = 1L;
         String idempotencyKey = UUID.randomUUID()
                 .toString();
@@ -56,10 +51,6 @@ class OrderFacadeTest {
         );
 
         assertThat(result).isSameAs(expectedResult);
-        verify(orderEventDeliveryService).sendOrderCompletedEvent(
-                memberId,
-                response
-        );
     }
 
     @Test
@@ -103,14 +94,10 @@ class OrderFacadeTest {
                 memberId,
                 normalizedIdempotencyKey
         );
-        verify(orderEventDeliveryService, never()).sendOrderCompletedEvent(
-                memberId,
-                expectedResult.response()
-        );
     }
 
     @Test
-    void 이미_처리된_주문이면_외부_주문_완료_이벤트를_다시_전송하지_않는다() {
+    void 이미_처리된_주문이면_이미_처리된_결과를_그대로_반환한다() {
         Long memberId = 1L;
         String idempotencyKey = UUID.randomUUID()
                 .toString();
@@ -128,10 +115,6 @@ class OrderFacadeTest {
         );
 
         assertThat(result).isSameAs(expectedResult);
-        verify(orderEventDeliveryService, never()).sendOrderCompletedEvent(
-                memberId,
-                expectedResult.response()
-        );
     }
 
     @Test
