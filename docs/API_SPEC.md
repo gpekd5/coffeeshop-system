@@ -2097,6 +2097,60 @@ updatedAt
 
 ---
 
+## 8.6 관리자 Outbox 이벤트 수동 재처리
+
+- Method: `POST`
+- Path: `/api/v1/admin/outbox-events/{eventId}/retry`
+- Auth: 필요
+- Role: `ADMIN`
+
+### 설명
+
+자동 재시도 한도를 초과했거나 운영자가 재처리 대상으로 판단한 `FAILED` Outbox 이벤트를
+다음 Publisher 실행 대상이 되도록 `PENDING` 상태로 되돌린다.
+
+이미 발행에 성공한 `PUBLISHED` 이벤트는 중복 발행 위험이 있으므로 재처리할 수 없다.
+마지막 오류 정보는 발행 성공 전까지 운영 확인을 위해 유지될 수 있다.
+
+### Path Parameters
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---:|---|
+| `eventId` | String | Y | Outbox Event ID |
+
+### Response
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "Outbox 이벤트 재처리 요청에 성공했습니다.",
+  "data": {
+    "eventId": "4fb6a592-65e8-4e5d-8833-77a4ca1f661a",
+    "aggregateType": "ORDER",
+    "aggregateId": 50,
+    "eventType": "ORDER_COMPLETED",
+    "status": "PENDING",
+    "retryCount": 3,
+    "nextRetryAt": "2026-07-13T14:10:00",
+    "lastError": "Kafka unavailable",
+    "publishedAt": null,
+    "createdAt": "2026-07-13T14:00:00"
+  }
+}
+```
+
+### Error
+
+| Status | Code | 설명 |
+|---:|---|---|
+| `401` | `UNAUTHORIZED` | 인증되지 않은 사용자 |
+| `403` | `FORBIDDEN` | 관리자 권한 없음 |
+| `404` | `OUTBOX_EVENT_NOT_FOUND` | Outbox Event를 찾을 수 없음 |
+| `409` | `OUTBOX_EVENT_RETRY_NOT_ALLOWED` | 재처리할 수 없는 Outbox Event 상태 |
+
+---
+
 # 9. 멱등성 정책
 
 ## 9.1 주문 멱등키
@@ -2137,6 +2191,7 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 | 전체 주문 조회 | X | O | X |
 | 인기 메뉴 조회 | O | O | O |
 | Outbox 이벤트 운영 조회 | X | O | X |
+| Outbox 이벤트 수동 재처리 | X | O | X |
 
 ---
 
@@ -2227,6 +2282,8 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 | `502` | `EXTERNAL_DATA_COLLECTION_FAILED` | 외부 데이터 수집 API 호출 실패 |
 | `504` | `EXTERNAL_DATA_COLLECTION_TIMEOUT` | 외부 데이터 수집 API 타임아웃 |
 | `400` | `INVALID_OUTBOX_STATUS` | 유효하지 않은 Outbox Event 상태 |
+| `404` | `OUTBOX_EVENT_NOT_FOUND` | Outbox Event를 찾을 수 없음 |
+| `409` | `OUTBOX_EVENT_RETRY_NOT_ALLOWED` | 재처리할 수 없는 Outbox Event 상태 |
 | `500` | `OUTBOX_EVENT_SAVE_FAILED` | Outbox Event 저장 실패 |
 | `500` | `KAFKA_PUBLISH_FAILED` | Kafka 발행 실패 |
 | `409` | `DUPLICATED_EVENT` | 중복 이벤트 처리 |
@@ -2317,6 +2374,7 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 | Method | Path | 설명 | 권한 |
 |---|---|---|---|
 | `GET` | `/api/v1/admin/outbox-events` | Outbox 이벤트 목록 조회 | ADMIN |
+| `POST` | `/api/v1/admin/outbox-events/{eventId}/retry` | Outbox 이벤트 수동 재처리 | ADMIN |
 
 ---
 

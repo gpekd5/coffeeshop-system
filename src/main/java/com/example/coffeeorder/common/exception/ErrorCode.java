@@ -244,6 +244,16 @@ public enum ErrorCode {
             "INVALID_OUTBOX_STATUS",
             "유효하지 않은 Outbox Event 상태입니다."
     ),
+    OUTBOX_EVENT_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "OUTBOX_EVENT_NOT_FOUND",
+            "Outbox Event를 찾을 수 없습니다."
+    ),
+    OUTBOX_EVENT_RETRY_NOT_ALLOWED(
+            HttpStatus.CONFLICT,
+            "OUTBOX_EVENT_RETRY_NOT_ALLOWED",
+            "재처리할 수 없는 Outbox Event 상태입니다."
+    ),
     OUTBOX_EVENT_SAVE_FAILED(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "OUTBOX_EVENT_SAVE_FAILED",

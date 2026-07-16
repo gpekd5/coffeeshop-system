@@ -162,7 +162,7 @@ public class OutboxEvent extends BaseEntity {
 
     public void resetForRetry(LocalDateTime nextRetryAt) {
         if (status != OutboxStatus.FAILED) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT);
+            throw new BusinessException(ErrorCode.OUTBOX_EVENT_RETRY_NOT_ALLOWED);
         }
 
         this.status = OutboxStatus.PENDING;

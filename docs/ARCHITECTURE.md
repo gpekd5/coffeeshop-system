@@ -443,6 +443,7 @@ Consumer는 `eventId`를 기준으로 중복 이벤트를 처리하지 않도록
 - Kafka 발행 실패 시 `FAILED`, `retry_count`, `next_retry_at`, `last_error`를 기록한다.
 - 재시도 한도를 초과해 `next_retry_at`이 없는 `FAILED` 이벤트는 자동 재시도 대상에서 제외하고 운영자가 수동 재처리한다.
 - 운영자는 관리자 조회 API로 Outbox 상태, 재시도 횟수, 다음 재시도 시각 및 마지막 오류를 확인할 수 있다.
+- 운영자는 관리자 재처리 API로 `FAILED` 이벤트만 `PENDING`으로 되돌릴 수 있으며, `PUBLISHED` 이벤트는 중복 발행 위험 때문에 재처리하지 않는다.
 
 ## Kafka Consumer 처리 기준
 
