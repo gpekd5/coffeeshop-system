@@ -2,6 +2,7 @@ package com.example.coffeeorder.event.kafka.publisher;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -83,6 +84,28 @@ class OutboxPublisherServiceIntegrationTest {
         assertThat(failedEvent.getRetryCount()).isEqualTo(1);
         assertThat(failedEvent.getLastError()).contains("Kafka unavailable");
         assertThat(failedEvent.getNextRetryAt()).isNotNull();
+    }
+
+    @Test
+    void 재시도_시각이_지난_FAILED_Outbox_이벤트를_재처리하면_PUBLISHED로_변경한다() {
+        OutboxEvent event = 이벤트를_생성한다(3L);
+        event.markPublishFailed(
+                "Kafka unavailable",
+                LocalDateTime.now()
+                        .minusSeconds(1)
+        );
+        outboxEventRepository.saveAndFlush(event);
+
+        int retriedPublishCount = outboxPublisherService.publishAvailableEvents();
+
+        OutboxEvent publishedEvent = outboxEventRepository.findById(event.getId())
+                .orElseThrow();
+
+        assertThat(retriedPublishCount).isEqualTo(1);
+        assertThat(producer.sentEventIds()).containsExactly(event.getId());
+        assertThat(publishedEvent.getStatus()).isEqualTo(OutboxStatus.PUBLISHED);
+        assertThat(publishedEvent.getRetryCount()).isEqualTo(1);
+        assertThat(publishedEvent.getPublishedAt()).isNotNull();
     }
 
     private OutboxEvent 이벤트를_생성한다(Long orderId) {

@@ -173,6 +173,62 @@ class OrderCompletedEventProcessorIntegrationTest {
     }
 
     @Test
+    void 외부_API_Timeout_이벤트는_FAILED로_기록하고_다음_수신에서_재처리한다()
+            throws Exception {
+        String eventId = UUID.randomUUID()
+                .toString();
+        String payload = payload(eventId);
+        externalOrderEventClient.enqueue(
+                ExternalOrderEventSendResult.timeout(
+                        "read timeout",
+                        LocalDateTime.now()
+                )
+        );
+        externalOrderEventClient.enqueue(
+                ExternalOrderEventSendResult.success(
+                        200,
+                        LocalDateTime.now()
+                )
+        );
+
+        assertThatThrownBy(() -> orderCompletedEventProcessor.process(
+                TOPIC,
+                0,
+                1L,
+                eventId,
+                payload
+        ))
+                .isInstanceOf(KafkaOrderEventProcessingException.class)
+                .hasMessageContaining("status=TIMEOUT")
+                .hasMessageContaining("read timeout");
+
+        ProcessedKafkaEvent failedEvent = processedKafkaEventRepository
+                .findById(eventId)
+                .orElseThrow();
+
+        assertThat(failedEvent.getStatus()).isEqualTo(KafkaEventProcessingStatus.FAILED);
+        assertThat(failedEvent.getAttemptCount()).isEqualTo(1);
+        assertThat(failedEvent.getLastError()).contains("status=TIMEOUT");
+
+        orderCompletedEventProcessor.process(
+                TOPIC,
+                0,
+                2L,
+                eventId,
+                payload
+        );
+
+        ProcessedKafkaEvent completedEvent = processedKafkaEventRepository
+                .findById(eventId)
+                .orElseThrow();
+
+        assertThat(externalOrderEventClient.requestCount()).isEqualTo(2);
+        assertThat(completedEvent.getStatus()).isEqualTo(KafkaEventProcessingStatus.COMPLETED);
+        assertThat(completedEvent.getAttemptCount()).isEqualTo(2);
+        assertThat(completedEvent.getKafkaOffset()).isEqualTo(2L);
+    }
+
+    @Test
     void PROCESSING_lease가_유효한_이벤트는_중복_수신해도_외부_API를_호출하지_않는다()
             throws Exception {
         String eventId = UUID.randomUUID()
