@@ -2018,6 +2018,85 @@ ORDER_COMPLETED
 
 ---
 
+## 8.5 관리자 Outbox 이벤트 목록 조회
+
+- Method: `GET`
+- Path: `/api/v1/admin/outbox-events`
+- Auth: 필요
+- Role: `ADMIN`
+
+### 설명
+
+Outbox 이벤트의 발행 상태와 재시도 정보를 운영 관점에서 조회한다.
+
+Kafka 발행 실패나 적체 상황을 확인하기 위한 조회 API이며,
+이 API는 이벤트 상태를 변경하지 않는다.
+
+### Query Parameters
+
+| 필드 | 타입 | 필수 | 기본값 | 설명 |
+|---|---|---:|---:|---|
+| `status` | String | N | 전체 | Outbox 상태. `PENDING`, `FAILED`, `PUBLISHED` |
+| `page` | Integer | N | `0` | 페이지 번호 |
+| `size` | Integer | N | `20` | 페이지 크기 |
+| `sort` | String | N | `createdAt,desc` | 정렬 기준 |
+
+정렬 가능한 필드:
+
+```text
+eventId
+aggregateType
+aggregateId
+eventType
+status
+retryCount
+nextRetryAt
+publishedAt
+createdAt
+updatedAt
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "Outbox 이벤트 목록 조회에 성공했습니다.",
+  "data": {
+    "content": [
+      {
+        "eventId": "4fb6a592-65e8-4e5d-8833-77a4ca1f661a",
+        "aggregateType": "ORDER",
+        "aggregateId": 50,
+        "eventType": "ORDER_COMPLETED",
+        "status": "FAILED",
+        "retryCount": 2,
+        "nextRetryAt": "2026-07-13T14:05:00",
+        "lastError": "Kafka unavailable",
+        "publishedAt": null,
+        "createdAt": "2026-07-13T14:00:00"
+      }
+    ],
+    "page": 0,
+    "size": 20,
+    "totalElements": 1,
+    "totalPages": 1
+  }
+}
+```
+
+### Error
+
+| Status | Code | 설명 |
+|---:|---|---|
+| `400` | `INVALID_OUTBOX_STATUS` | 유효하지 않은 Outbox 상태 |
+| `400` | `INVALID_PAGE_REQUEST` | 잘못된 페이징 요청 |
+| `401` | `UNAUTHORIZED` | 인증되지 않은 사용자 |
+| `403` | `FORBIDDEN` | 관리자 권한 없음 |
+
+---
+
 # 9. 멱등성 정책
 
 ## 9.1 주문 멱등키
@@ -2057,6 +2136,7 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 | 내 주문 조회 | O | O | X |
 | 전체 주문 조회 | X | O | X |
 | 인기 메뉴 조회 | O | O | O |
+| Outbox 이벤트 운영 조회 | X | O | X |
 
 ---
 
@@ -2146,6 +2226,7 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 |---:|---|---|
 | `502` | `EXTERNAL_DATA_COLLECTION_FAILED` | 외부 데이터 수집 API 호출 실패 |
 | `504` | `EXTERNAL_DATA_COLLECTION_TIMEOUT` | 외부 데이터 수집 API 타임아웃 |
+| `400` | `INVALID_OUTBOX_STATUS` | 유효하지 않은 Outbox Event 상태 |
 | `500` | `OUTBOX_EVENT_SAVE_FAILED` | Outbox Event 저장 실패 |
 | `500` | `KAFKA_PUBLISH_FAILED` | Kafka 발행 실패 |
 | `409` | `DUPLICATED_EVENT` | 중복 이벤트 처리 |
@@ -2228,6 +2309,14 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 |---|---|---|---|
 | `POST` | `/mock/v1/order-events` | 주문 완료 이벤트 수신 | 1차 Mock API |
 | Kafka | `order.completed` | 주문 완료 이벤트 발행 | 2차 고도화 |
+
+---
+
+## 12.8 관리자 운영 조회
+
+| Method | Path | 설명 | 권한 |
+|---|---|---|---|
+| `GET` | `/api/v1/admin/outbox-events` | Outbox 이벤트 목록 조회 | ADMIN |
 
 ---
 

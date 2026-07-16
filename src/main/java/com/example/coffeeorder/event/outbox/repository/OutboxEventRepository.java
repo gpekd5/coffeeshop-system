@@ -7,6 +7,7 @@ import java.util.Optional;
 import com.example.coffeeorder.event.outbox.entity.OutboxEvent;
 import com.example.coffeeorder.event.outbox.entity.OutboxStatus;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -20,6 +21,11 @@ public interface OutboxEventRepository
             String aggregateType,
             Long aggregateId,
             String eventType
+    );
+
+    Page<OutboxEvent> findAllByStatus(
+            OutboxStatus status,
+            Pageable pageable
     );
 
     List<OutboxEvent> findAllByStatusOrderByCreatedAtAsc(OutboxStatus status);

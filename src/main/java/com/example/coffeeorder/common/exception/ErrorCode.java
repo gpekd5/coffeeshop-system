@@ -239,6 +239,11 @@ public enum ErrorCode {
             "EXTERNAL_DATA_COLLECTION_TIMEOUT",
             "외부 데이터 수집 API 호출이 타임아웃되었습니다."
     ),
+    INVALID_OUTBOX_STATUS(
+            HttpStatus.BAD_REQUEST,
+            "INVALID_OUTBOX_STATUS",
+            "유효하지 않은 Outbox Event 상태입니다."
+    ),
     OUTBOX_EVENT_SAVE_FAILED(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "OUTBOX_EVENT_SAVE_FAILED",
