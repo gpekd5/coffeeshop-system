@@ -28,7 +28,8 @@ public record KafkaOrderEventProperties(
             boolean enabled,
             String groupId,
             long maxAttempts,
-            long retryIntervalMillis
+            long retryIntervalMillis,
+            long processingLeaseSeconds
     ) {
     }
 }

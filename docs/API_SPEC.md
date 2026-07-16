@@ -2010,6 +2010,8 @@ ORDER_COMPLETED
 - Kafka 발행 실패가 완료된 주문 상태를 변경하지 않는다.
 - Consumer는 `processed_kafka_events.event_id`를 기준으로 중복 소비를 방지한다.
 - 처리 완료된 `eventId`가 다시 수신되면 외부 API를 재호출하지 않는다.
+- 처리 중인 `eventId`는 `processing_deadline_at` lease가 유효한 경우에만 중복 처리로 간주한다.
+- `processing_deadline_at`이 만료된 `PROCESSING` 이벤트는 장애 중단으로 보고 재처리할 수 있다.
 - Consumer 처리 실패 시 재시도 또는 Dead Letter Topic을 사용한다.
 - Dead Letter Topic으로 이동한 이벤트는 원본 Topic, Payload, 실패 원인을 `dead_letter_order_events`에 기록한다.
 - Topic, Partition, Event Key, Consumer Group 세부 정책은 `ARCHITECTURE.md`에서 정의한다.

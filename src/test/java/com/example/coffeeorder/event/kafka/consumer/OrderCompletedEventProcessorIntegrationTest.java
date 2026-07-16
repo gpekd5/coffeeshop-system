@@ -172,6 +172,76 @@ class OrderCompletedEventProcessorIntegrationTest {
         assertThat(completedEvent.getKafkaOffset()).isEqualTo(2L);
     }
 
+    @Test
+    void PROCESSING_lease가_유효한_이벤트는_중복_수신해도_외부_API를_호출하지_않는다()
+            throws Exception {
+        String eventId = UUID.randomUUID()
+                .toString();
+        String payload = payload(eventId);
+        processedKafkaEventRepository.saveAndFlush(ProcessedKafkaEvent.start(
+                eventId,
+                "ORDER_COMPLETED",
+                TOPIC,
+                0,
+                1L,
+                LocalDateTime.now()
+                        .plusMinutes(1)
+        ));
+
+        orderCompletedEventProcessor.process(
+                TOPIC,
+                0,
+                2L,
+                eventId,
+                payload
+        );
+
+        ProcessedKafkaEvent event = processedKafkaEventRepository
+                .findById(eventId)
+                .orElseThrow();
+
+        assertThat(externalOrderEventClient.requestCount()).isZero();
+        assertThat(event.getStatus()).isEqualTo(KafkaEventProcessingStatus.PROCESSING);
+        assertThat(event.getAttemptCount()).isEqualTo(1);
+        assertThat(event.getKafkaOffset()).isEqualTo(1L);
+    }
+
+    @Test
+    void PROCESSING_저장_후_종료되어_lease가_만료된_이벤트는_재처리한다()
+            throws Exception {
+        String eventId = UUID.randomUUID()
+                .toString();
+        String payload = payload(eventId);
+        processedKafkaEventRepository.saveAndFlush(ProcessedKafkaEvent.start(
+                eventId,
+                "ORDER_COMPLETED",
+                TOPIC,
+                0,
+                1L,
+                LocalDateTime.now()
+                        .minusSeconds(1)
+        ));
+
+        orderCompletedEventProcessor.process(
+                TOPIC,
+                0,
+                2L,
+                eventId,
+                payload
+        );
+
+        ProcessedKafkaEvent event = processedKafkaEventRepository
+                .findById(eventId)
+                .orElseThrow();
+
+        assertThat(externalOrderEventClient.requestCount()).isEqualTo(1);
+        assertThat(event.getStatus()).isEqualTo(KafkaEventProcessingStatus.COMPLETED);
+        assertThat(event.getAttemptCount()).isEqualTo(2);
+        assertThat(event.getKafkaOffset()).isEqualTo(2L);
+        assertThat(event.getProcessingDeadlineAt()).isNull();
+        assertThat(event.getProcessedAt()).isNotNull();
+    }
+
     private String payload(String eventId) throws Exception {
         return objectMapper.writeValueAsString(new OrderCompletedOutboxPayload(
                 eventId,

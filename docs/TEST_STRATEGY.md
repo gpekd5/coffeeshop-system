@@ -1100,6 +1100,16 @@ Kafka Order Event
 - `processed_kafka_events`의 `COMPLETED` 상태를 기준으로 재호출을 생략하는가?
 - 동일 주문이 외부 시스템에 중복 반영되지 않는가?
 
+## 13.2.1 처리 중 이벤트 lease 만료
+
+`PROCESSING` 저장 후 Consumer가 종료되어 `complete()` 또는 `fail()`이 실행되지 않은 상황을 재현한다.
+
+검증 항목:
+
+- `processing_deadline_at`이 유효한 `PROCESSING` 이벤트는 중복 처리로 보고 건너뛰는가?
+- `processing_deadline_at`이 지난 `PROCESSING` 이벤트는 재처리하는가?
+- 재처리 후 외부 API가 호출되고 `COMPLETED` 또는 `FAILED`로 전이되는가?
+
 ---
 
 ## 13.3 Consumer 처리 실패

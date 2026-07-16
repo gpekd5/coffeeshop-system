@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 
 import com.example.coffeeorder.common.exception.BusinessException;
 import com.example.coffeeorder.common.exception.ErrorCode;
+import com.example.coffeeorder.event.kafka.config.KafkaOrderEventProperties;
 import com.example.coffeeorder.event.kafka.consumer.entity.ProcessedKafkaEvent;
 import com.example.coffeeorder.event.kafka.consumer.repository.ProcessedKafkaEventRepository;
 import org.springframework.stereotype.Service;
@@ -14,13 +15,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProcessedKafkaEventService {
 
     private final ProcessedKafkaEventRepository processedKafkaEventRepository;
+    private final KafkaOrderEventProperties properties;
     private final Clock clock;
 
     public ProcessedKafkaEventService(
             ProcessedKafkaEventRepository processedKafkaEventRepository,
+            KafkaOrderEventProperties properties,
             Clock clock
     ) {
         this.processedKafkaEventRepository = processedKafkaEventRepository;
+        this.properties = properties;
         this.clock = clock;
     }
 
@@ -32,6 +36,8 @@ public class ProcessedKafkaEventService {
             Integer kafkaPartition,
             Long kafkaOffset
     ) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        LocalDateTime processingDeadlineAt = processingDeadlineAt(now);
         ProcessedKafkaEvent event = processedKafkaEventRepository
                 .findByEventIdForUpdate(eventId)
                 .orElse(null);
@@ -43,21 +49,23 @@ public class ProcessedKafkaEventService {
                             eventType,
                             topic,
                             kafkaPartition,
-                            kafkaOffset
+                            kafkaOffset,
+                            processingDeadlineAt
                     )
             );
 
             return true;
         }
 
-        if (event.isCompleted() || event.isProcessing()) {
+        if (event.isCompleted() || event.isProcessingLeaseActive(now)) {
             return false;
         }
 
         event.startRetry(
                 topic,
                 kafkaPartition,
-                kafkaOffset
+                kafkaOffset,
+                processingDeadlineAt
         );
 
         return true;
@@ -85,5 +93,16 @@ public class ProcessedKafkaEventService {
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.INTERNAL_SERVER_ERROR
                 ));
+    }
+
+    private LocalDateTime processingDeadlineAt(LocalDateTime now) {
+        long processingLeaseSeconds = properties.consumer()
+                .processingLeaseSeconds();
+
+        if (processingLeaseSeconds < 1) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+
+        return now.plusSeconds(processingLeaseSeconds);
     }
 }

@@ -272,6 +272,11 @@ Consumer는 `eventId`를 기준으로 이미 처리한 이벤트인지 확인한
 `COMPLETED` 상태의 Event ID가 다시 수신되면 외부 API 호출을 생략하고,
 `FAILED` 상태의 Event ID는 Kafka 재시도 또는 재수신 시 다시 처리한다.
 
+`PROCESSING` 상태는 Consumer가 외부 API 호출 전후에 종료될 수 있으므로
+`processing_deadline_at` lease를 함께 저장한다. 아직 lease가 유효하면 다른 Consumer가
+처리 중인 이벤트로 보고 건너뛰고, lease가 만료되면 이전 Consumer 장애로 판단해
+다시 선점하고 처리한다.
+
 ---
 
 ## 11. 재시도와 Dead Letter Topic

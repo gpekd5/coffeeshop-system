@@ -448,6 +448,8 @@ Consumer는 `eventId`를 기준으로 중복 이벤트를 처리하지 않도록
 - Consumer는 Kafka 메시지 Key 또는 Payload의 `eventId`를 처리 식별자로 사용한다.
 - `processed_kafka_events`에 `eventId`를 저장해 여러 Consumer 인스턴스가 같은 이벤트 처리 여부를 공유한다.
 - `COMPLETED` 이벤트가 다시 수신되면 외부 API를 재호출하지 않는다.
+- `PROCESSING` 이벤트는 `processing_deadline_at`이 지나지 않은 경우에만 다른 Consumer의 처리 중 상태로 보고 건너뛴다.
+- `processing_deadline_at`이 지난 `PROCESSING` 이벤트는 이전 Consumer 종료나 장애로 보고 새 Consumer가 다시 선점해 처리한다.
 - 외부 API 호출 실패나 Timeout은 `FAILED`로 기록하고 Kafka 재시도 정책에 따라 다시 처리한다.
 - 최대 재시도 이후 Dead Letter Topic으로 이동한 이벤트는 `dead_letter_order_events`에 원본 Topic, Payload, 실패 원인을 저장한다.
 - 외부 API 호출은 Consumer 처리 단계에서 실행하며 주문 DB 트랜잭션에 포함하지 않는다.

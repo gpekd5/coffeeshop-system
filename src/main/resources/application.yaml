@@ -54,3 +54,4 @@ app:
       group-id: ${APP_KAFKA_ORDER_EVENT_CONSUMER_GROUP_ID:coffee-order-event-consumer}
       max-attempts: ${APP_KAFKA_ORDER_EVENT_CONSUMER_MAX_ATTEMPTS:3}
       retry-interval-millis: ${APP_KAFKA_ORDER_EVENT_CONSUMER_RETRY_INTERVAL_MILLIS:1000}
+      processing-lease-seconds: ${APP_KAFKA_ORDER_EVENT_CONSUMER_PROCESSING_LEASE_SECONDS:30}

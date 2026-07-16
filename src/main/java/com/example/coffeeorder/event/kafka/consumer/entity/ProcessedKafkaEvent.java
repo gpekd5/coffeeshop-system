@@ -71,6 +71,9 @@ public class ProcessedKafkaEvent extends BaseEntity {
     )
     private String lastError;
 
+    @Column(name = "processing_deadline_at")
+    private LocalDateTime processingDeadlineAt;
+
     @Column(name = "processed_at")
     private LocalDateTime processedAt;
 
@@ -82,14 +85,16 @@ public class ProcessedKafkaEvent extends BaseEntity {
             String eventType,
             String topic,
             Integer kafkaPartition,
-            Long kafkaOffset
+            Long kafkaOffset,
+            LocalDateTime processingDeadlineAt
     ) {
         validateRequired(
                 eventId,
                 eventType,
                 topic,
                 kafkaPartition,
-                kafkaOffset
+                kafkaOffset,
+                processingDeadlineAt
         );
 
         this.eventId = eventId;
@@ -99,6 +104,7 @@ public class ProcessedKafkaEvent extends BaseEntity {
         this.kafkaOffset = kafkaOffset;
         this.status = KafkaEventProcessingStatus.PROCESSING;
         this.attemptCount = 1;
+        this.processingDeadlineAt = processingDeadlineAt;
     }
 
     public static ProcessedKafkaEvent start(
@@ -106,28 +112,32 @@ public class ProcessedKafkaEvent extends BaseEntity {
             String eventType,
             String topic,
             Integer kafkaPartition,
-            Long kafkaOffset
+            Long kafkaOffset,
+            LocalDateTime processingDeadlineAt
     ) {
         return new ProcessedKafkaEvent(
                 eventId,
                 eventType,
                 topic,
                 kafkaPartition,
-                kafkaOffset
+                kafkaOffset,
+                processingDeadlineAt
         );
     }
 
     public void startRetry(
             String topic,
             Integer kafkaPartition,
-            Long kafkaOffset
+            Long kafkaOffset,
+            LocalDateTime processingDeadlineAt
     ) {
         validateRequired(
                 eventId,
                 eventType,
                 topic,
                 kafkaPartition,
-                kafkaOffset
+                kafkaOffset,
+                processingDeadlineAt
         );
 
         this.topic = topic;
@@ -135,6 +145,9 @@ public class ProcessedKafkaEvent extends BaseEntity {
         this.kafkaOffset = kafkaOffset;
         this.status = KafkaEventProcessingStatus.PROCESSING;
         this.attemptCount += 1;
+        this.lastError = null;
+        this.processedAt = null;
+        this.processingDeadlineAt = processingDeadlineAt;
     }
 
     public void complete(LocalDateTime processedAt) {
@@ -144,12 +157,14 @@ public class ProcessedKafkaEvent extends BaseEntity {
 
         this.status = KafkaEventProcessingStatus.COMPLETED;
         this.lastError = null;
+        this.processingDeadlineAt = null;
         this.processedAt = processedAt;
     }
 
     public void fail(String lastError) {
         this.status = KafkaEventProcessingStatus.FAILED;
         this.lastError = truncate(lastError);
+        this.processingDeadlineAt = null;
     }
 
     public boolean isCompleted() {
@@ -160,18 +175,30 @@ public class ProcessedKafkaEvent extends BaseEntity {
         return status == KafkaEventProcessingStatus.PROCESSING;
     }
 
+    public boolean isProcessingLeaseActive(LocalDateTime now) {
+        if (now == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+
+        return isProcessing()
+                && processingDeadlineAt != null
+                && processingDeadlineAt.isAfter(now);
+    }
+
     private static void validateRequired(
             String eventId,
             String eventType,
             String topic,
             Integer kafkaPartition,
-            Long kafkaOffset
+            Long kafkaOffset,
+            LocalDateTime processingDeadlineAt
     ) {
         if (eventId == null || eventId.isBlank()
                 || eventType == null || eventType.isBlank()
                 || topic == null || topic.isBlank()
                 || kafkaPartition == null
-                || kafkaOffset == null) {
+                || kafkaOffset == null
+                || processingDeadlineAt == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);
         }
     }
@@ -217,6 +244,10 @@ public class ProcessedKafkaEvent extends BaseEntity {
 
     public String getLastError() {
         return lastError;
+    }
+
+    public LocalDateTime getProcessingDeadlineAt() {
+        return processingDeadlineAt;
     }
 
     public LocalDateTime getProcessedAt() {
