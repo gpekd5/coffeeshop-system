@@ -1163,6 +1163,20 @@ Kafka Order Event
 
 ---
 
+## 13.5 Kafka 이벤트 처리 이력 조회 API
+
+관리자가 Consumer 처리 이력과 재처리 판단에 필요한 정보를 조회할 수 있는지 검증한다.
+
+검증 항목:
+
+- 관리자만 Kafka 이벤트 처리 이력을 조회할 수 있는가?
+- `PROCESSING`, `COMPLETED`, `FAILED` 상태별 필터링이 가능한가?
+- `attempt_count`, `last_error`, `processing_deadline_at`이 응답에 포함되는가?
+- 페이징과 정렬 요청이 공통 페이지 응답 형식으로 반환되는가?
+- 잘못된 상태 또는 페이징 요청은 공통 오류 응답으로 반환되는가?
+
+---
+
 # 14. 성능 테스트
 
 성능 테스트는 k6 또는 JMeter를 사용한다.
