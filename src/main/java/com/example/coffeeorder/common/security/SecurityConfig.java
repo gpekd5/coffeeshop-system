@@ -47,6 +47,11 @@ public class SecurityConfig {
                             HttpMethod.GET,
                             "/api/v1/menus/**"
                     ).permitAll();
+                    requests.requestMatchers(
+                            HttpMethod.GET,
+                            "/actuator/health",
+                            "/actuator/prometheus"
+                    ).permitAll();
 
                     if (isMockOrderEventPublic(environment)) {
                         requests.requestMatchers(

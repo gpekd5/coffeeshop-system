@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 
 import com.example.coffeeorder.event.dto.OrderCompletedEventRequest;
+import com.example.coffeeorder.event.metrics.ExternalOrderEventMetricsRecorder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
@@ -25,12 +26,14 @@ public class HttpExternalOrderEventClient implements ExternalOrderEventClient {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final Clock clock;
+    private final ExternalOrderEventMetricsRecorder metricsRecorder;
     private final URI endpointUri;
     private final Duration responseTimeout;
 
     public HttpExternalOrderEventClient(
             ObjectMapper objectMapper,
             Clock clock,
+            ExternalOrderEventMetricsRecorder metricsRecorder,
             @Value("${app.external-order-event.base-url}") String baseUrl,
             @Value("${app.external-order-event.path}") String path,
             @Value("${app.external-order-event.connect-timeout-millis}") long connectTimeoutMillis,
@@ -38,6 +41,7 @@ public class HttpExternalOrderEventClient implements ExternalOrderEventClient {
     ) {
         this.objectMapper = objectMapper;
         this.clock = clock;
+        this.metricsRecorder = metricsRecorder;
         this.endpointUri = createEndpointUri(
                 baseUrl,
                 path
@@ -57,36 +61,36 @@ public class HttpExternalOrderEventClient implements ExternalOrderEventClient {
             );
 
             if (isSuccessful(response.statusCode())) {
-                return ExternalOrderEventSendResult.success(
+                return recordAndReturn(ExternalOrderEventSendResult.success(
                         response.statusCode(),
                         now()
-                );
+                ));
             }
 
-            return ExternalOrderEventSendResult.failed(
+            return recordAndReturn(ExternalOrderEventSendResult.failed(
                     response.statusCode(),
                     "외부 데이터 수집 API가 " + response.statusCode() + " 상태를 반환했습니다.",
                     now()
-            );
+            ));
         } catch (HttpTimeoutException exception) {
-            return ExternalOrderEventSendResult.timeout(
+            return recordAndReturn(ExternalOrderEventSendResult.timeout(
                     exception.getMessage(),
                     now()
-            );
+            ));
         } catch (InterruptedException exception) {
             Thread.currentThread()
                     .interrupt();
 
-            return ExternalOrderEventSendResult.timeout(
+            return recordAndReturn(ExternalOrderEventSendResult.timeout(
                     "외부 데이터 수집 API 호출이 인터럽트되었습니다.",
                     now()
-            );
+            ));
         } catch (IOException | RuntimeException exception) {
-            return ExternalOrderEventSendResult.failed(
+            return recordAndReturn(ExternalOrderEventSendResult.failed(
                     null,
                     exception.getMessage(),
                     now()
-            );
+            ));
         }
     }
 
@@ -122,6 +126,14 @@ public class HttpExternalOrderEventClient implements ExternalOrderEventClient {
 
     private boolean isSuccessful(int statusCode) {
         return statusCode >= 200 && statusCode < 300;
+    }
+
+    private ExternalOrderEventSendResult recordAndReturn(
+            ExternalOrderEventSendResult result
+    ) {
+        metricsRecorder.record(result.status());
+
+        return result;
     }
 
     private LocalDateTime now() {
