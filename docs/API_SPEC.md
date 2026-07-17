@@ -2233,6 +2233,137 @@ updatedAt
 
 ---
 
+## 8.8 관리자 Dead Letter 주문 이벤트 조회
+
+- Method: `GET`
+- Path: `/api/v1/admin/dead-letter-order-events`
+- Auth: 필요
+- Role: `ADMIN`
+
+### 설명
+
+Kafka Consumer가 최종 처리에 실패해 Dead Letter Topic으로 이동한 주문 이벤트를 운영 관점에서 조회한다.
+
+Dead Letter 이벤트는 자동 복구가 어려운 최종 실패 신호이므로,
+운영자는 Dead Letter Topic 위치, 원본 Topic, Payload, 실패 원인을 확인할 수 있어야 한다.
+이 API는 `dead_letter_order_events`에 저장된 정보를 조회하며 이벤트를 재처리하지 않는다.
+
+### Query Parameters
+
+| 필드 | 타입 | 필수 | 기본값 | 설명 |
+|---|---|---:|---:|---|
+| `page` | Integer | N | `0` | 페이지 번호 |
+| `size` | Integer | N | `20` | 페이지 크기 |
+| `sort` | String | N | `createdAt,desc` | 정렬 기준 |
+
+정렬 가능한 필드:
+
+```text
+id
+eventId
+topic
+originalTopic
+deadLetterTopic
+kafkaPartition
+kafkaOffset
+receivedAt
+createdAt
+updatedAt
+```
+
+`topic`은 Dead Letter Topic을 의미하며 `kafkaPartition`, `kafkaOffset`과 함께
+Dead Letter Topic에서의 Kafka 위치를 나타낸다.
+원본 Topic은 `originalTopic`으로 반환한다.
+
+### Response
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "Dead Letter 주문 이벤트 목록 조회에 성공했습니다.",
+  "data": {
+    "content": [
+      {
+        "id": 1,
+        "eventId": "4fb6a592-65e8-4e5d-8833-77a4ca1f661a",
+        "topic": "order.completed.DLT",
+        "originalTopic": "order.completed",
+        "kafkaPartition": 0,
+        "kafkaOffset": 30,
+        "exceptionMessage": "External API 500",
+        "payload": "{\"eventId\":\"4fb6a592-65e8-4e5d-8833-77a4ca1f661a\"}",
+        "receivedAt": "2026-07-13T14:10:00",
+        "createdAt": "2026-07-13T14:10:00"
+      }
+    ],
+    "page": 0,
+    "size": 20,
+    "totalElements": 1,
+    "totalPages": 1
+  }
+}
+```
+
+### Error
+
+| Status | Code | 설명 |
+|---:|---|---|
+| `400` | `INVALID_PAGE_REQUEST` | 잘못된 페이징 요청 |
+| `401` | `UNAUTHORIZED` | 인증되지 않은 사용자 |
+| `403` | `FORBIDDEN` | 관리자 권한 없음 |
+
+---
+
+## 8.9 관리자 Dead Letter 주문 이벤트 상세 조회
+
+- Method: `GET`
+- Path: `/api/v1/admin/dead-letter-order-events/{deadLetterEventId}`
+- Auth: 필요
+- Role: `ADMIN`
+
+### 설명
+
+단일 Dead Letter 주문 이벤트의 Kafka 위치, 원본 Topic, Payload, 실패 원인을 조회한다.
+
+### Path Parameters
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---:|---|
+| `deadLetterEventId` | Long | Y | Dead Letter 주문 이벤트 식별자 |
+
+### Response
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "Dead Letter 주문 이벤트 상세 조회에 성공했습니다.",
+  "data": {
+    "id": 1,
+    "eventId": "4fb6a592-65e8-4e5d-8833-77a4ca1f661a",
+    "topic": "order.completed.DLT",
+    "originalTopic": "order.completed",
+    "kafkaPartition": 0,
+    "kafkaOffset": 30,
+    "exceptionMessage": "External API 500",
+    "payload": "{\"eventId\":\"4fb6a592-65e8-4e5d-8833-77a4ca1f661a\"}",
+    "receivedAt": "2026-07-13T14:10:00",
+    "createdAt": "2026-07-13T14:10:00"
+  }
+}
+```
+
+### Error
+
+| Status | Code | 설명 |
+|---:|---|---|
+| `401` | `UNAUTHORIZED` | 인증되지 않은 사용자 |
+| `403` | `FORBIDDEN` | 관리자 권한 없음 |
+| `404` | `DEAD_LETTER_ORDER_EVENT_NOT_FOUND` | Dead Letter 주문 이벤트를 찾을 수 없음 |
+
+---
+
 # 9. 멱등성 정책
 
 ## 9.1 주문 멱등키
@@ -2275,6 +2406,7 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 | Outbox 이벤트 운영 조회 | X | O | X |
 | Outbox 이벤트 수동 재처리 | X | O | X |
 | Kafka 이벤트 처리 이력 조회 | X | O | X |
+| Dead Letter 주문 이벤트 조회 | X | O | X |
 
 ---
 
@@ -2368,6 +2500,7 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 | `400` | `INVALID_KAFKA_EVENT_PROCESSING_STATUS` | 유효하지 않은 Kafka Event 처리 상태 |
 | `404` | `OUTBOX_EVENT_NOT_FOUND` | Outbox Event를 찾을 수 없음 |
 | `409` | `OUTBOX_EVENT_RETRY_NOT_ALLOWED` | 재처리할 수 없는 Outbox Event 상태 |
+| `404` | `DEAD_LETTER_ORDER_EVENT_NOT_FOUND` | Dead Letter 주문 이벤트를 찾을 수 없음 |
 | `500` | `OUTBOX_EVENT_SAVE_FAILED` | Outbox Event 저장 실패 |
 | `500` | `KAFKA_PUBLISH_FAILED` | Kafka 발행 실패 |
 | `409` | `DUPLICATED_EVENT` | 중복 이벤트 처리 |
@@ -2460,6 +2593,8 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 | `GET` | `/api/v1/admin/outbox-events` | Outbox 이벤트 목록 조회 | ADMIN |
 | `POST` | `/api/v1/admin/outbox-events/{eventId}/retry` | Outbox 이벤트 수동 재처리 | ADMIN |
 | `GET` | `/api/v1/admin/processed-kafka-events` | Kafka 이벤트 처리 이력 조회 | ADMIN |
+| `GET` | `/api/v1/admin/dead-letter-order-events` | Dead Letter 주문 이벤트 목록 조회 | ADMIN |
+| `GET` | `/api/v1/admin/dead-letter-order-events/{deadLetterEventId}` | Dead Letter 주문 이벤트 상세 조회 | ADMIN |
 
 ---
 

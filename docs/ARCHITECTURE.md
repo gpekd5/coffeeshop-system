@@ -455,6 +455,7 @@ Consumer는 `eventId`를 기준으로 중복 이벤트를 처리하지 않도록
 - 외부 API 호출 실패나 Timeout은 `FAILED`로 기록하고 Kafka 재시도 정책에 따라 다시 처리한다.
 - 최대 재시도 이후 Dead Letter Topic으로 이동한 이벤트는 `dead_letter_order_events`에 원본 Topic, Payload, 실패 원인을 저장한다.
 - 운영자는 관리자 조회 API로 Consumer 처리 상태, 처리 시도 횟수, 마지막 오류 및 lease 만료 시각을 확인할 수 있다.
+- 운영자는 관리자 Dead Letter 조회 API로 최종 실패한 주문 이벤트의 Dead Letter Topic 위치, 원본 Topic, Payload 및 실패 원인을 확인할 수 있다.
 - 외부 API 호출은 Consumer 처리 단계에서 실행하며 주문 DB 트랜잭션에 포함하지 않는다.
 
 ---

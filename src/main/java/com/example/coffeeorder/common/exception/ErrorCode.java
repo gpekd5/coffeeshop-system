@@ -259,6 +259,11 @@ public enum ErrorCode {
             "OUTBOX_EVENT_RETRY_NOT_ALLOWED",
             "재처리할 수 없는 Outbox Event 상태입니다."
     ),
+    DEAD_LETTER_ORDER_EVENT_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "DEAD_LETTER_ORDER_EVENT_NOT_FOUND",
+            "Dead Letter 주문 이벤트를 찾을 수 없습니다."
+    ),
     OUTBOX_EVENT_SAVE_FAILED(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "OUTBOX_EVENT_SAVE_FAILED",
