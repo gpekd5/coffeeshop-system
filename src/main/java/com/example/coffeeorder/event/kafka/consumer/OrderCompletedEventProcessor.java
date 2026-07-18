@@ -6,6 +6,7 @@ import com.example.coffeeorder.event.dto.OrderCompletedEventItemRequest;
 import com.example.coffeeorder.event.dto.OrderCompletedEventRequest;
 import com.example.coffeeorder.event.entity.ExternalOrderEventStatus;
 import com.example.coffeeorder.event.kafka.consumer.service.ProcessedKafkaEventService;
+import com.example.coffeeorder.event.metrics.KafkaConsumerMetricsRecorder;
 import com.example.coffeeorder.event.outbox.dto.OrderCompletedOutboxPayload;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
@@ -16,15 +17,18 @@ public class OrderCompletedEventProcessor {
     private final ObjectMapper objectMapper;
     private final ProcessedKafkaEventService processedKafkaEventService;
     private final ExternalOrderEventClient externalOrderEventClient;
+    private final KafkaConsumerMetricsRecorder kafkaConsumerMetricsRecorder;
 
     public OrderCompletedEventProcessor(
             ObjectMapper objectMapper,
             ProcessedKafkaEventService processedKafkaEventService,
-            ExternalOrderEventClient externalOrderEventClient
+            ExternalOrderEventClient externalOrderEventClient,
+            KafkaConsumerMetricsRecorder kafkaConsumerMetricsRecorder
     ) {
         this.objectMapper = objectMapper;
         this.processedKafkaEventService = processedKafkaEventService;
         this.externalOrderEventClient = externalOrderEventClient;
+        this.kafkaConsumerMetricsRecorder = kafkaConsumerMetricsRecorder;
     }
 
     public void process(
@@ -34,7 +38,15 @@ public class OrderCompletedEventProcessor {
             String eventId,
             String payload
     ) {
-        OrderCompletedOutboxPayload outboxPayload = deserialize(payload);
+        OrderCompletedOutboxPayload outboxPayload;
+
+        try {
+            outboxPayload = deserialize(payload);
+        } catch (RuntimeException exception) {
+            kafkaConsumerMetricsRecorder.recordFailure();
+            throw exception;
+        }
+
         String processingEventId = resolveEventId(
                 eventId,
                 outboxPayload
@@ -48,6 +60,7 @@ public class OrderCompletedEventProcessor {
         );
 
         if (!shouldProcess) {
+            kafkaConsumerMetricsRecorder.recordDuplicateSkip();
             return;
         }
 
@@ -57,6 +70,7 @@ public class OrderCompletedEventProcessor {
 
             if (result.status() == ExternalOrderEventStatus.SUCCESS) {
                 processedKafkaEventService.complete(processingEventId);
+                kafkaConsumerMetricsRecorder.recordSuccess();
                 return;
             }
 
@@ -73,6 +87,7 @@ public class OrderCompletedEventProcessor {
                     processingEventId,
                     exception.getMessage()
             );
+            kafkaConsumerMetricsRecorder.recordFailure();
 
             throw exception;
         }

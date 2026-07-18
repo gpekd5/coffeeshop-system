@@ -2364,6 +2364,33 @@ Dead Letter Topic에서의 Kafka 위치를 나타낸다.
 
 ---
 
+## 8.10 운영 메트릭 조회
+
+- Method: `GET`
+- Path: `/actuator/prometheus`
+- Auth: 불필요
+- 용도: Prometheus Scrape
+
+### 설명
+
+Outbox 적체, Kafka Consumer 처리 실패 증가, Dead Letter 발생 여부를
+Prometheus/Grafana에서 관찰하기 위한 애플리케이션 메트릭 엔드포인트이다.
+
+이 엔드포인트는 공통 `ApiResponse` JSON이 아니라 Prometheus Text Format을 반환한다.
+운영 환경에서는 애플리케이션 인증 대신 사내망, 보안 그룹 또는 수집기 접근 제어로 보호한다.
+
+### 주요 지표
+
+| 지표 | 타입 | 라벨 | 설명 |
+|---|---|---|---|
+| `coffee_order_outbox_events` | Gauge | `status=PENDING\|FAILED\|PUBLISHED` | Outbox 상태별 이벤트 수 |
+| `coffee_order_outbox_oldest_pending_age_seconds` | Gauge | 없음 | 가장 오래된 `PENDING` 이벤트 대기 시간 |
+| `coffee_order_kafka_consumer_events_total` | Counter | `result=success\|failure\|duplicate_skip` | Kafka Consumer 처리 결과 누적 수 |
+| `coffee_order_dead_letter_order_events` | Gauge | 없음 | Dead Letter 주문 이벤트 수 |
+| `coffee_order_external_order_event_requests_total` | Counter | `result=success\|failure\|timeout` | 외부 주문 이벤트 API 호출 결과 누적 수 |
+
+---
+
 # 9. 멱등성 정책
 
 ## 9.1 주문 멱등키
@@ -2407,6 +2434,7 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 | Outbox 이벤트 수동 재처리 | X | O | X |
 | Kafka 이벤트 처리 이력 조회 | X | O | X |
 | Dead Letter 주문 이벤트 조회 | X | O | X |
+| 운영 메트릭 조회 | O | O | O |
 
 ---
 
@@ -2595,6 +2623,14 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 | `GET` | `/api/v1/admin/processed-kafka-events` | Kafka 이벤트 처리 이력 조회 | ADMIN |
 | `GET` | `/api/v1/admin/dead-letter-order-events` | Dead Letter 주문 이벤트 목록 조회 | ADMIN |
 | `GET` | `/api/v1/admin/dead-letter-order-events/{deadLetterEventId}` | Dead Letter 주문 이벤트 상세 조회 | ADMIN |
+
+---
+
+## 12.9 운영 메트릭
+
+| Method | Path | 설명 | Auth |
+|---|---|---|---|
+| `GET` | `/actuator/prometheus` | Prometheus 메트릭 조회 | 불필요 |
 
 ---
 

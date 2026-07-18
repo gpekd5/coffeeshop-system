@@ -458,6 +458,26 @@ Consumer는 `eventId`를 기준으로 중복 이벤트를 처리하지 않도록
 - 운영자는 관리자 Dead Letter 조회 API로 최종 실패한 주문 이벤트의 Dead Letter Topic 위치, 원본 Topic, Payload 및 실패 원인을 확인할 수 있다.
 - 외부 API 호출은 Consumer 처리 단계에서 실행하며 주문 DB 트랜잭션에 포함하지 않는다.
 
+## 이벤트 모니터링 지표
+
+Outbox와 Kafka Consumer 운영 상태는 Spring Boot Actuator와 Micrometer를 통해
+`/actuator/prometheus`에서 Prometheus 형식으로 노출한다.
+
+| 지표 | 타입 | 라벨 | 설명 |
+|---|---|---|---|
+| `coffee_order_outbox_events` | Gauge | `status=PENDING\|FAILED\|PUBLISHED` | Outbox 상태별 이벤트 수 |
+| `coffee_order_outbox_oldest_pending_age_seconds` | Gauge | 없음 | 가장 오래된 `PENDING` Outbox 이벤트가 대기한 시간 |
+| `coffee_order_kafka_consumer_events_total` | Counter | `result=success\|failure\|duplicate_skip` | Kafka Consumer 처리 성공, 실패, 중복 스킵 누적 수 |
+| `coffee_order_dead_letter_order_events` | Gauge | 없음 | 저장된 Dead Letter 주문 이벤트 수 |
+| `coffee_order_external_order_event_requests_total` | Counter | `result=success\|failure\|timeout` | 외부 주문 이벤트 API 호출 결과 누적 수 |
+
+Prometheus의 Counter는 Micrometer 내부 지표명 뒤에 `_total` 접미사가 붙은 이름으로 조회된다.
+`duplicate_skip`은 이미 `COMPLETED`인 이벤트 재수신과 유효한 `PROCESSING` lease로 인해
+현재 Consumer가 처리하지 않은 이벤트를 의미한다.
+
+`/actuator/prometheus`는 Prometheus 수집을 위해 인증 없이 접근 가능하도록 열어두되,
+운영 환경에서는 로드밸런서, 보안 그룹 또는 사내망 정책으로 외부 공개를 제한한다.
+
 ---
 
 # 8. 조회, 장애 및 테스트 전략

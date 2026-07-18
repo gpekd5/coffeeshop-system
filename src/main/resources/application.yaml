@@ -25,6 +25,12 @@ server:
       enabled: true
       force: true
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+
 app:
   time-zone: Asia/Seoul
   jwt:

@@ -17,11 +17,14 @@ import com.example.coffeeorder.event.entity.ExternalOrderEventStatus;
 import com.example.coffeeorder.event.kafka.consumer.entity.KafkaEventProcessingStatus;
 import com.example.coffeeorder.event.kafka.consumer.entity.ProcessedKafkaEvent;
 import com.example.coffeeorder.event.kafka.consumer.repository.ProcessedKafkaEventRepository;
+import com.example.coffeeorder.event.metrics.KafkaConsumerMetricsRecorder;
 import com.example.coffeeorder.event.outbox.dto.OrderCompletedOutboxPayload;
 import com.example.coffeeorder.menu.entity.MenuCategory;
 import com.example.coffeeorder.order.dto.response.OrderItemResponse;
 import com.example.coffeeorder.order.entity.OrderChannel;
 import com.example.coffeeorder.payment.entity.PaymentMethod;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,6 +57,9 @@ class OrderCompletedEventProcessorIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private MeterRegistry meterRegistry;
+
     @BeforeEach
     void setUp() {
         processedKafkaEventRepository.deleteAll();
@@ -66,6 +72,9 @@ class OrderCompletedEventProcessorIntegrationTest {
         String eventId = UUID.randomUUID()
                 .toString();
         String payload = payload(eventId);
+        double successCount = kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_SUCCESS
+        );
 
         orderCompletedEventProcessor.process(
                 TOPIC,
@@ -85,6 +94,9 @@ class OrderCompletedEventProcessorIntegrationTest {
         assertThat(event.getStatus()).isEqualTo(KafkaEventProcessingStatus.COMPLETED);
         assertThat(event.getAttemptCount()).isEqualTo(1);
         assertThat(event.getProcessedAt()).isNotNull();
+        assertThat(kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_SUCCESS
+        )).isEqualTo(successCount + 1.0);
     }
 
     @Test
@@ -93,6 +105,12 @@ class OrderCompletedEventProcessorIntegrationTest {
         String eventId = UUID.randomUUID()
                 .toString();
         String payload = payload(eventId);
+        double successCount = kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_SUCCESS
+        );
+        double duplicateSkipCount = kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_DUPLICATE_SKIP
+        );
 
         orderCompletedEventProcessor.process(
                 TOPIC,
@@ -117,6 +135,12 @@ class OrderCompletedEventProcessorIntegrationTest {
         assertThat(event.getStatus()).isEqualTo(KafkaEventProcessingStatus.COMPLETED);
         assertThat(event.getAttemptCount()).isEqualTo(1);
         assertThat(event.getKafkaOffset()).isEqualTo(1L);
+        assertThat(kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_SUCCESS
+        )).isEqualTo(successCount + 1.0);
+        assertThat(kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_DUPLICATE_SKIP
+        )).isEqualTo(duplicateSkipCount + 1.0);
     }
 
     @Test
@@ -125,6 +149,12 @@ class OrderCompletedEventProcessorIntegrationTest {
         String eventId = UUID.randomUUID()
                 .toString();
         String payload = payload(eventId);
+        double successCount = kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_SUCCESS
+        );
+        double failureCount = kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_FAILURE
+        );
         externalOrderEventClient.enqueue(
                 ExternalOrderEventSendResult.failed(
                         null,
@@ -153,6 +183,9 @@ class OrderCompletedEventProcessorIntegrationTest {
 
         assertThat(failedEvent.getStatus()).isEqualTo(KafkaEventProcessingStatus.FAILED);
         assertThat(failedEvent.getAttemptCount()).isEqualTo(1);
+        assertThat(kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_FAILURE
+        )).isEqualTo(failureCount + 1.0);
 
         orderCompletedEventProcessor.process(
                 TOPIC,
@@ -170,6 +203,9 @@ class OrderCompletedEventProcessorIntegrationTest {
         assertThat(completedEvent.getStatus()).isEqualTo(KafkaEventProcessingStatus.COMPLETED);
         assertThat(completedEvent.getAttemptCount()).isEqualTo(2);
         assertThat(completedEvent.getKafkaOffset()).isEqualTo(2L);
+        assertThat(kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_SUCCESS
+        )).isEqualTo(successCount + 1.0);
     }
 
     @Test
@@ -178,6 +214,12 @@ class OrderCompletedEventProcessorIntegrationTest {
         String eventId = UUID.randomUUID()
                 .toString();
         String payload = payload(eventId);
+        double successCount = kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_SUCCESS
+        );
+        double failureCount = kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_FAILURE
+        );
         externalOrderEventClient.enqueue(
                 ExternalOrderEventSendResult.timeout(
                         "read timeout",
@@ -209,6 +251,9 @@ class OrderCompletedEventProcessorIntegrationTest {
         assertThat(failedEvent.getStatus()).isEqualTo(KafkaEventProcessingStatus.FAILED);
         assertThat(failedEvent.getAttemptCount()).isEqualTo(1);
         assertThat(failedEvent.getLastError()).contains("status=TIMEOUT");
+        assertThat(kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_FAILURE
+        )).isEqualTo(failureCount + 1.0);
 
         orderCompletedEventProcessor.process(
                 TOPIC,
@@ -226,6 +271,9 @@ class OrderCompletedEventProcessorIntegrationTest {
         assertThat(completedEvent.getStatus()).isEqualTo(KafkaEventProcessingStatus.COMPLETED);
         assertThat(completedEvent.getAttemptCount()).isEqualTo(2);
         assertThat(completedEvent.getKafkaOffset()).isEqualTo(2L);
+        assertThat(kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_SUCCESS
+        )).isEqualTo(successCount + 1.0);
     }
 
     @Test
@@ -234,6 +282,9 @@ class OrderCompletedEventProcessorIntegrationTest {
         String eventId = UUID.randomUUID()
                 .toString();
         String payload = payload(eventId);
+        double duplicateSkipCount = kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_DUPLICATE_SKIP
+        );
         processedKafkaEventRepository.saveAndFlush(ProcessedKafkaEvent.start(
                 eventId,
                 "ORDER_COMPLETED",
@@ -260,6 +311,9 @@ class OrderCompletedEventProcessorIntegrationTest {
         assertThat(event.getStatus()).isEqualTo(KafkaEventProcessingStatus.PROCESSING);
         assertThat(event.getAttemptCount()).isEqualTo(1);
         assertThat(event.getKafkaOffset()).isEqualTo(1L);
+        assertThat(kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_DUPLICATE_SKIP
+        )).isEqualTo(duplicateSkipCount + 1.0);
     }
 
     @Test
@@ -268,6 +322,9 @@ class OrderCompletedEventProcessorIntegrationTest {
         String eventId = UUID.randomUUID()
                 .toString();
         String payload = payload(eventId);
+        double successCount = kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_SUCCESS
+        );
         processedKafkaEventRepository.saveAndFlush(ProcessedKafkaEvent.start(
                 eventId,
                 "ORDER_COMPLETED",
@@ -296,6 +353,33 @@ class OrderCompletedEventProcessorIntegrationTest {
         assertThat(event.getKafkaOffset()).isEqualTo(2L);
         assertThat(event.getProcessingDeadlineAt()).isNull();
         assertThat(event.getProcessedAt()).isNotNull();
+        assertThat(kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_SUCCESS
+        )).isEqualTo(successCount + 1.0);
+    }
+
+    @Test
+    void 역직렬화에_실패한_이벤트도_FAILURE_Counter에_기록한다() {
+        double failureCount = kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_FAILURE
+        );
+
+        assertThatThrownBy(() -> orderCompletedEventProcessor.process(
+                TOPIC,
+                0,
+                1L,
+                "invalid-event-id",
+                "{invalid-json"
+        ))
+                .isInstanceOf(KafkaOrderEventProcessingException.class)
+                .hasMessageContaining("역직렬화");
+
+        assertThat(externalOrderEventClient.requestCount()).isZero();
+        assertThat(processedKafkaEventRepository.findById("invalid-event-id"))
+                .isEmpty();
+        assertThat(kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_FAILURE
+        )).isEqualTo(failureCount + 1.0);
     }
 
     private String payload(String eventId) throws Exception {
@@ -322,6 +406,23 @@ class OrderCompletedEventProcessorIntegrationTest {
                 LocalDateTime.now(),
                 LocalDateTime.now()
         ));
+    }
+
+    private double kafkaConsumerCounter(String result) {
+        Counter counter = meterRegistry.find(
+                        KafkaConsumerMetricsRecorder.KAFKA_CONSUMER_EVENTS_METRIC
+                )
+                .tag(
+                        "result",
+                        result
+                )
+                .counter();
+
+        if (counter == null) {
+            return 0.0;
+        }
+
+        return counter.count();
     }
 
     @TestConfiguration

@@ -28,6 +28,10 @@ public interface OutboxEventRepository
             Pageable pageable
     );
 
+    long countByStatus(OutboxStatus status);
+
+    Optional<OutboxEvent> findFirstByStatusOrderByCreatedAtAsc(OutboxStatus status);
+
     List<OutboxEvent> findAllByStatusOrderByCreatedAtAsc(OutboxStatus status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

@@ -1191,6 +1191,22 @@ Kafka Order Event
 
 ---
 
+## 13.7 이벤트 모니터링 메트릭
+
+Outbox와 Kafka Consumer 운영 지표는 Micrometer `MeterRegistry`와
+`/actuator/prometheus` 응답으로 검증한다.
+
+검증 항목:
+
+- `PENDING`, `FAILED`, `PUBLISHED` Outbox 이벤트 수가 `coffee_order_outbox_events` Gauge에 반영되는가?
+- 가장 오래된 `PENDING` 이벤트 age가 `coffee_order_outbox_oldest_pending_age_seconds` Gauge로 조회되는가?
+- Kafka Consumer 성공, 실패, 중복 스킵 흐름이 `coffee_order_kafka_consumer_events_total` Counter에 반영되는가?
+- Dead Letter 이벤트 수가 `coffee_order_dead_letter_order_events` Gauge에 반영되는가?
+- 외부 주문 이벤트 API 성공, 실패, Timeout이 `coffee_order_external_order_event_requests_total` Counter에 반영되는가?
+- `/actuator/prometheus`가 Prometheus 수집 형식으로 메트릭을 노출하는가?
+
+---
+
 # 14. 성능 테스트
 
 성능 테스트는 k6 또는 JMeter를 사용한다.
