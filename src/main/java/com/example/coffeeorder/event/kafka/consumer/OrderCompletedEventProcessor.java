@@ -38,7 +38,15 @@ public class OrderCompletedEventProcessor {
             String eventId,
             String payload
     ) {
-        OrderCompletedOutboxPayload outboxPayload = deserialize(payload);
+        OrderCompletedOutboxPayload outboxPayload;
+
+        try {
+            outboxPayload = deserialize(payload);
+        } catch (RuntimeException exception) {
+            kafkaConsumerMetricsRecorder.recordFailure();
+            throw exception;
+        }
+
         String processingEventId = resolveEventId(
                 eventId,
                 outboxPayload

@@ -358,6 +358,30 @@ class OrderCompletedEventProcessorIntegrationTest {
         )).isEqualTo(successCount + 1.0);
     }
 
+    @Test
+    void 역직렬화에_실패한_이벤트도_FAILURE_Counter에_기록한다() {
+        double failureCount = kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_FAILURE
+        );
+
+        assertThatThrownBy(() -> orderCompletedEventProcessor.process(
+                TOPIC,
+                0,
+                1L,
+                "invalid-event-id",
+                "{invalid-json"
+        ))
+                .isInstanceOf(KafkaOrderEventProcessingException.class)
+                .hasMessageContaining("역직렬화");
+
+        assertThat(externalOrderEventClient.requestCount()).isZero();
+        assertThat(processedKafkaEventRepository.findById("invalid-event-id"))
+                .isEmpty();
+        assertThat(kafkaConsumerCounter(
+                KafkaConsumerMetricsRecorder.RESULT_FAILURE
+        )).isEqualTo(failureCount + 1.0);
+    }
+
     private String payload(String eventId) throws Exception {
         return objectMapper.writeValueAsString(new OrderCompletedOutboxPayload(
                 eventId,
