@@ -16,6 +16,9 @@ spring:
     redis:
       host: localhost
       port: 6379
+      timeout: 100ms
+  kafka:
+    bootstrap-servers: localhost:9092
 
 app:
   time-zone: Asia/Seoul
