@@ -41,6 +41,66 @@ class LocalConfigurationLoadTest {
                 "spring.data.redis.port",
                 "6379"
         );
+        assertPropertyContains(
+                propertySources,
+                "app.mock-order-event.enabled",
+                "true"
+        );
+        assertPropertyContains(
+                propertySources,
+                "app.kafka-order-event.publisher.enabled",
+                "false"
+        );
+        assertPropertyContains(
+                propertySources,
+                "app.kafka-order-event.consumer.enabled",
+                "false"
+        );
+    }
+
+    @Test
+    void 운영_환경_설정은_외부_인프라와_JWT_시크릿을_환경변수로_받는다() throws IOException {
+        List<PropertySource<?>> propertySources =
+                new YamlPropertySourceLoader().load(
+                        "application-prod",
+                        new ClassPathResource("application-prod.yaml")
+                );
+
+        assertPropertyContains(
+                propertySources,
+                "spring.datasource.url",
+                "SPRING_DATASOURCE_URL"
+        );
+        assertPropertyContains(
+                propertySources,
+                "spring.data.redis.host",
+                "SPRING_DATA_REDIS_HOST"
+        );
+        assertPropertyContains(
+                propertySources,
+                "spring.kafka.bootstrap-servers",
+                "SPRING_KAFKA_BOOTSTRAP_SERVERS"
+        );
+        assertPropertyContains(
+                propertySources,
+                "app.jwt.secret",
+                "APP_JWT_SECRET"
+        );
+        assertPropertyContains(
+                propertySources,
+                "app.mock-order-event.enabled",
+                "false"
+        );
+        assertPropertyContains(
+                propertySources,
+                "app.kafka-order-event.publisher.enabled",
+                "false"
+        );
+        assertPropertyContains(
+                propertySources,
+                "app.kafka-order-event.consumer.enabled",
+                "false"
+        );
     }
 
     private void assertPropertyContains(

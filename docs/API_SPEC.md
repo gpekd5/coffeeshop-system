@@ -1858,7 +1858,7 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 
 - Method: `POST`
 - Path: `/mock/v1/order-events`
-- Auth: 불필요 또는 테스트용 인증
+- Auth: `local` 또는 `test` 프로필에서 `app.mock-order-event.enabled=true`일 때만 인증 불필요
 - 사용 목적: 외부 데이터 수집 플랫폼 모의 테스트
 
 ### 설명
@@ -1866,6 +1866,8 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 실제 외부 데이터 수집 플랫폼 대신 주문 완료 이벤트를 수신하는 테스트용 API이다.
 
 1차 구현에서 주문 서버는 주문 완료 후 Mock API를 동기 호출한다.
+
+운영 `prod` 프로필에서는 Mock API 컨트롤러를 등록하지 않으며, 공개 경로 허용도 적용하지 않는다.
 
 ### Request
 
@@ -2013,6 +2015,7 @@ ORDER_COMPLETED
 - 처리 중인 `eventId`는 `processing_deadline_at` lease가 유효한 경우에만 중복 처리로 간주한다.
 - `processing_deadline_at`이 만료된 `PROCESSING` 이벤트는 장애 중단으로 보고 재처리할 수 있다.
 - Consumer 처리 실패 시 재시도 또는 Dead Letter Topic을 사용한다.
+- Kafka Publisher와 Consumer는 각각 `app.kafka-order-event.publisher.enabled`, `app.kafka-order-event.consumer.enabled`가 `true`일 때만 활성화한다.
 - Dead Letter Topic으로 이동한 이벤트는 원본 Topic, Payload, 실패 원인을 `dead_letter_order_events`에 기록한다.
 - Topic, Partition, Event Key, Consumer Group 세부 정책은 `ARCHITECTURE.md`에서 정의한다.
 

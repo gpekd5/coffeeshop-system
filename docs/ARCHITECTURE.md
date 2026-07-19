@@ -458,6 +458,18 @@ Consumer는 `eventId`를 기준으로 중복 이벤트를 처리하지 않도록
 - 운영자는 관리자 Dead Letter 조회 API로 최종 실패한 주문 이벤트의 Dead Letter Topic 위치, 원본 Topic, Payload 및 실패 원인을 확인할 수 있다.
 - 외부 API 호출은 Consumer 처리 단계에서 실행하며 주문 DB 트랜잭션에 포함하지 않는다.
 
+## 프로필별 외부 이벤트 설정
+
+| 프로필 | Mock API | Kafka Publisher | Kafka Consumer |
+|---|---|---|---|
+| `local` | 기본 활성화. 로컬 학습과 지연, 실패, Timeout 재현에 사용 | 기본 비활성화. 명시적으로 켤 때만 Outbox 이벤트를 Kafka로 발행 | 기본 비활성화. 명시적으로 켤 때만 Kafka 이벤트를 소비 |
+| `test` | 통합 테스트에서 명시 활성화 | 비활성화. 서비스 테스트는 Kafka Producer를 대체 구현으로 검증 | 비활성화. Consumer 단위 처리는 외부 Kafka 없이 검증 |
+| `prod` | 비활성화. 컨트롤러를 등록하지 않고 공개 경로도 허용하지 않음 | 기본 비활성화. 운영 Kafka 연결 정보를 환경변수로 주입한 뒤 활성화 | 기본 비활성화. 운영 Kafka 연결 정보를 환경변수로 주입한 뒤 활성화 |
+
+운영 프로필은 MySQL, Redis, Kafka 및 JWT Secret을 환경변수로 주입받는다.
+로컬 기본값이 운영에 암묵적으로 적용되지 않도록 `application-prod.yaml`에서
+운영 필수 인프라 값을 명시적으로 요구한다.
+
 ## 이벤트 모니터링 지표
 
 Outbox와 Kafka Consumer 운영 상태는 Spring Boot Actuator와 Micrometer를 통해
