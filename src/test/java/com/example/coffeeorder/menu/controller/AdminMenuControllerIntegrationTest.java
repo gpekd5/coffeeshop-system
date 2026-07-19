@@ -1,6 +1,9 @@
 package com.example.coffeeorder.menu.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static com.example.coffeeorder.testsupport.IntegrationTestFixtures.memberWithRole;
+import static com.example.coffeeorder.testsupport.IntegrationTestFixtures.menu;
+import static com.example.coffeeorder.testsupport.TestAuthTokens.accessToken;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -9,12 +12,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import com.example.coffeeorder.common.security.JwtTokenProvider;
 import com.example.coffeeorder.common.security.TokenStore;
+import com.example.coffeeorder.testsupport.InMemoryTokenStore;
+import com.example.coffeeorder.testsupport.TestTokenStoreConfig;
 import com.example.coffeeorder.member.entity.Member;
 import com.example.coffeeorder.member.entity.MemberRole;
 import com.example.coffeeorder.member.repository.MemberRepository;
@@ -26,22 +28,20 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @TestPropertySource(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
-@Import(AdminMenuControllerIntegrationTest.TestTokenStoreConfig.class)
+@Import(TestTokenStoreConfig.class)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class AdminMenuControllerIntegrationTest {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
@@ -560,20 +560,15 @@ class AdminMenuControllerIntegrationTest {
             String email,
             MemberRole role
     ) {
-        Member member = memberRepository.saveAndFlush(Member.create(
+        Member member = memberRepository.saveAndFlush(memberWithRole(
                 email,
-                "encrypted-password",
-                role.name()
-        ));
-        ReflectionTestUtils.setField(
-                member,
-                "role",
                 role
-        );
-        memberRepository.saveAndFlush(member);
+        ));
 
-        return jwtTokenProvider.createLoginTokens(member)
-                .accessToken();
+        return accessToken(
+                jwtTokenProvider,
+                member
+        );
     }
 
     private Menu 메뉴를_저장한다(
@@ -583,103 +578,12 @@ class AdminMenuControllerIntegrationTest {
             long price,
             MenuStatus status
     ) {
-        return menuRepository.saveAndFlush(Menu.create(
+        return menuRepository.saveAndFlush(menu(
                 name,
                 description,
                 category,
                 price,
                 status
         ));
-    }
-
-    @TestConfiguration
-    static class TestTokenStoreConfig {
-
-        @Bean
-        @Primary
-        TokenStore tokenStore() {
-            return new InMemoryTokenStore();
-        }
-    }
-
-    static class InMemoryTokenStore implements TokenStore {
-
-        private final Map<Long, String> refreshTokens =
-                new ConcurrentHashMap<>();
-        private final Set<String> blacklistedAccessTokens =
-                ConcurrentHashMap.newKeySet();
-
-        @Override
-        public void saveRefreshToken(
-                Long memberId,
-                String refreshToken,
-                long ttlSeconds
-        ) {
-            if (ttlSeconds > 0) {
-                refreshTokens.put(
-                        memberId,
-                        refreshToken
-                );
-            }
-        }
-
-        @Override
-        public boolean matchesRefreshToken(
-                Long memberId,
-                String refreshToken
-        ) {
-            return refreshToken.equals(refreshTokens.get(memberId));
-        }
-
-        @Override
-        public boolean rotateRefreshToken(
-                Long memberId,
-                String currentRefreshToken,
-                String newRefreshToken,
-                long ttlSeconds
-        ) {
-            if (ttlSeconds <= 0) {
-                return false;
-            }
-
-            if (!currentRefreshToken.equals(refreshTokens.get(memberId))) {
-                return false;
-            }
-
-            refreshTokens.put(
-                    memberId,
-                    newRefreshToken
-            );
-
-            return true;
-        }
-
-        @Override
-        public void deleteRefreshToken(Long memberId) {
-            refreshTokens.remove(memberId);
-        }
-
-        @Override
-        public void logoutTokens(
-                Long memberId,
-                String accessToken,
-                long accessTokenTtlSeconds
-        ) {
-            if (accessTokenTtlSeconds > 0) {
-                blacklistedAccessTokens.add(accessToken);
-            }
-
-            refreshTokens.remove(memberId);
-        }
-
-        @Override
-        public boolean isAccessTokenBlacklisted(String accessToken) {
-            return blacklistedAccessTokens.contains(accessToken);
-        }
-
-        void clear() {
-            refreshTokens.clear();
-            blacklistedAccessTokens.clear();
-        }
     }
 }

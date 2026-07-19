@@ -7,11 +7,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import com.example.coffeeorder.common.security.TokenStore;
+import com.example.coffeeorder.testsupport.InMemoryTokenStore;
+import com.example.coffeeorder.testsupport.TestTokenStoreConfig;
 import com.example.coffeeorder.member.entity.Member;
 import com.example.coffeeorder.member.entity.MemberStatus;
 import com.example.coffeeorder.member.repository.MemberRepository;
@@ -20,12 +19,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -36,7 +33,8 @@ import tools.jackson.databind.ObjectMapper;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @TestPropertySource(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
-@Import(MemberControllerIntegrationTest.TestTokenStoreConfig.class)
+@Import(TestTokenStoreConfig.class)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class MemberControllerIntegrationTest {
 
     @Autowired
@@ -296,96 +294,5 @@ class MemberControllerIntegrationTest {
             String accessToken,
             String refreshToken
     ) {
-    }
-
-    @TestConfiguration
-    static class TestTokenStoreConfig {
-
-        @Bean
-        @Primary
-        TokenStore tokenStore() {
-            return new InMemoryTokenStore();
-        }
-    }
-
-    static class InMemoryTokenStore implements TokenStore {
-
-        private final Map<Long, String> refreshTokens =
-                new ConcurrentHashMap<>();
-        private final Set<String> blacklistedAccessTokens =
-                ConcurrentHashMap.newKeySet();
-
-        @Override
-        public void saveRefreshToken(
-                Long memberId,
-                String refreshToken,
-                long ttlSeconds
-        ) {
-            if (ttlSeconds > 0) {
-                refreshTokens.put(
-                        memberId,
-                        refreshToken
-                );
-            }
-        }
-
-        @Override
-        public synchronized boolean matchesRefreshToken(
-                Long memberId,
-                String refreshToken
-        ) {
-            return refreshToken.equals(refreshTokens.get(memberId));
-        }
-
-        @Override
-        public synchronized boolean rotateRefreshToken(
-                Long memberId,
-                String currentRefreshToken,
-                String newRefreshToken,
-                long ttlSeconds
-        ) {
-            if (ttlSeconds <= 0) {
-                return false;
-            }
-
-            if (!currentRefreshToken.equals(refreshTokens.get(memberId))) {
-                return false;
-            }
-
-            refreshTokens.put(
-                    memberId,
-                    newRefreshToken
-            );
-
-            return true;
-        }
-
-        @Override
-        public synchronized void deleteRefreshToken(Long memberId) {
-            refreshTokens.remove(memberId);
-        }
-
-        @Override
-        public synchronized void logoutTokens(
-                Long memberId,
-                String accessToken,
-                long accessTokenTtlSeconds
-        ) {
-            if (accessTokenTtlSeconds > 0) {
-                blacklistedAccessTokens.add(accessToken);
-            }
-
-            refreshTokens.remove(memberId);
-        }
-
-        @Override
-        public boolean isAccessTokenBlacklisted(String accessToken) {
-            return blacklistedAccessTokens.contains(accessToken);
-        }
-
-        void clear() {
-            refreshTokens.clear();
-            blacklistedAccessTokens.clear();
-        }
     }
 }

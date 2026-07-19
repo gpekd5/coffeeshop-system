@@ -1,14 +1,17 @@
 package com.example.coffeeorder.order.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static com.example.coffeeorder.testsupport.IntegrationTestFixtures.cart;
+import static com.example.coffeeorder.testsupport.IntegrationTestFixtures.cartItem;
+import static com.example.coffeeorder.testsupport.IntegrationTestFixtures.member;
+import static com.example.coffeeorder.testsupport.IntegrationTestFixtures.menu;
+import static com.example.coffeeorder.testsupport.IntegrationTestFixtures.point;
+import static com.example.coffeeorder.testsupport.TestAuthTokens.accessToken;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.example.coffeeorder.cart.entity.Cart;
@@ -17,6 +20,8 @@ import com.example.coffeeorder.cart.repository.CartItemRepository;
 import com.example.coffeeorder.cart.repository.CartRepository;
 import com.example.coffeeorder.common.security.JwtTokenProvider;
 import com.example.coffeeorder.common.security.TokenStore;
+import com.example.coffeeorder.testsupport.InMemoryTokenStore;
+import com.example.coffeeorder.testsupport.TestTokenStoreConfig;
 import com.example.coffeeorder.event.client.ExternalOrderEventClient;
 import com.example.coffeeorder.event.client.ExternalOrderEventSendResult;
 import com.example.coffeeorder.event.dto.OrderCompletedEventRequest;
@@ -44,6 +49,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -55,7 +61,11 @@ import org.springframework.test.web.servlet.MockMvc;
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "app.external-order-event.enabled=true"
 })
-@Import(OrderExternalEventIntegrationTest.TestConfig.class)
+@Import({
+        OrderExternalEventIntegrationTest.TestConfig.class,
+        TestTokenStoreConfig.class
+})
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class OrderExternalEventIntegrationTest {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
@@ -134,15 +144,14 @@ class OrderExternalEventIntegrationTest {
                 "user@example.com",
                 10_000L
         );
-        Menu menu = menuRepository.saveAndFlush(Menu.create(
+        Menu menu = menuRepository.saveAndFlush(menu(
                 "아메리카노",
-                "아메리카노 설명",
                 MenuCategory.COFFEE,
                 4_500L,
                 MenuStatus.ON_SALE
         ));
-        Cart cart = cartRepository.saveAndFlush(Cart.create(user.member()));
-        cartItemRepository.saveAndFlush(CartItem.create(
+        Cart cart = cartRepository.saveAndFlush(cart(user.member()));
+        cartItemRepository.saveAndFlush(cartItem(
                 cart,
                 menu,
                 1
@@ -180,21 +189,16 @@ class OrderExternalEventIntegrationTest {
             String email,
             long balance
     ) {
-        Member member = memberRepository.saveAndFlush(Member.create(
-                email,
-                "encrypted-password",
-                email
+        Member member = memberRepository.saveAndFlush(member(email));
+        pointRepository.saveAndFlush(point(
+                member,
+                balance
         ));
-        Point point = Point.create(member);
 
-        if (balance > 0) {
-            point.charge(balance);
-        }
-
-        pointRepository.saveAndFlush(point);
-
-        String accessToken = jwtTokenProvider.createLoginTokens(member)
-                .accessToken();
+        String accessToken = accessToken(
+                jwtTokenProvider,
+                member
+        );
 
         return new TestUser(
                 member,
@@ -210,12 +214,6 @@ class OrderExternalEventIntegrationTest {
 
     @TestConfiguration
     static class TestConfig {
-
-        @Bean
-        @Primary
-        TokenStore tokenStore() {
-            return new InMemoryTokenStore();
-        }
 
         @Bean
         @Primary
@@ -244,96 +242,6 @@ class OrderExternalEventIntegrationTest {
 
         int requestCount() {
             return requestCount.get();
-        }
-    }
-
-    static class InMemoryTokenStore implements TokenStore {
-
-        private final Map<Long, String> refreshTokens =
-                new ConcurrentHashMap<>();
-        private final Set<String> blacklistedAccessTokens =
-                ConcurrentHashMap.newKeySet();
-
-        @Override
-        public void saveRefreshToken(
-                Long memberId,
-                String refreshToken,
-                long ttlSeconds
-        ) {
-            if (ttlSeconds > 0) {
-                refreshTokens.put(
-                        memberId,
-                        refreshToken
-                );
-            }
-        }
-
-        @Override
-        public boolean matchesRefreshToken(
-                Long memberId,
-                String refreshToken
-        ) {
-            return refreshToken.equals(refreshTokens.get(memberId));
-        }
-
-        @Override
-        public boolean rotateRefreshToken(
-                Long memberId,
-                String currentRefreshToken,
-                String newRefreshToken,
-                long ttlSeconds
-        ) {
-            if (!matchesRefreshToken(
-                    memberId,
-                    currentRefreshToken
-            )) {
-                return false;
-            }
-
-            saveRefreshToken(
-                    memberId,
-                    newRefreshToken,
-                    ttlSeconds
-            );
-
-            return true;
-        }
-
-        public void blacklistAccessToken(
-                String accessToken,
-                long ttlSeconds
-        ) {
-            if (ttlSeconds > 0) {
-                blacklistedAccessTokens.add(accessToken);
-            }
-        }
-
-        @Override
-        public boolean isAccessTokenBlacklisted(String accessToken) {
-            return blacklistedAccessTokens.contains(accessToken);
-        }
-
-        @Override
-        public void deleteRefreshToken(Long memberId) {
-            refreshTokens.remove(memberId);
-        }
-
-        @Override
-        public void logoutTokens(
-                Long memberId,
-                String accessToken,
-                long accessTokenTtlSeconds
-        ) {
-            deleteRefreshToken(memberId);
-            blacklistAccessToken(
-                    accessToken,
-                    accessTokenTtlSeconds
-            );
-        }
-
-        void clear() {
-            refreshTokens.clear();
-            blacklistedAccessTokens.clear();
         }
     }
 }

@@ -1386,6 +1386,20 @@ PointFixture
 OrderFixture
 ```
 
+현재 통합 테스트 공통 지원 코드는 `src/test/java/com/example/coffeeorder/testsupport`에 둔다.
+
+| 지원 코드 | 용도 |
+|---|---|
+| `IntegrationTestFixtures` | 회원, 메뉴, 포인트, 장바구니, 장바구니 항목 Entity 생성 |
+| `TestAuthTokens` | 테스트 Access Token 생성 |
+| `InMemoryTokenStore` | Redis 없이 인증 통합 테스트를 실행하기 위한 TokenStore |
+| `TestTokenStoreConfig` | 통합 테스트에서 InMemory TokenStore를 주입하는 공통 TestConfiguration |
+
+공통 TestConfiguration을 공유하는 통합 테스트는 H2 DB 상태가 클래스 간에 섞이지 않도록
+필요 시 `@DirtiesContext(classMode = AFTER_CLASS)`로 테스트 컨텍스트를 분리한다.
+`application-test.yaml`의 H2 메모리 DB 이름은 컨텍스트마다 랜덤 값을 포함해,
+한 컨텍스트 종료 시 `ddl-auto=create-drop`이 다른 테스트 컨텍스트의 테이블을 삭제하지 않도록 한다.
+
 예시:
 
 ```java
