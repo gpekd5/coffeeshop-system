@@ -2016,6 +2016,7 @@ ORDER_COMPLETED
 - `processing_deadline_at`이 만료된 `PROCESSING` 이벤트는 장애 중단으로 보고 재처리할 수 있다.
 - Consumer 처리 실패 시 재시도 또는 Dead Letter Topic을 사용한다.
 - Kafka Publisher와 Consumer는 각각 `app.kafka-order-event.publisher.enabled`, `app.kafka-order-event.consumer.enabled`가 `true`일 때만 활성화한다.
+- 운영 `prod` 프로필에서 Kafka Consumer를 활성화할 때 외부 주문 이벤트 URL은 운영 수집 플랫폼을 가리켜야 하며, localhost 또는 Mock API 경로는 허용하지 않는다.
 - Dead Letter Topic으로 이동한 이벤트는 원본 Topic, Payload, 실패 원인을 `dead_letter_order_events`에 기록한다.
 - Topic, Partition, Event Key, Consumer Group 세부 정책은 `ARCHITECTURE.md`에서 정의한다.
 

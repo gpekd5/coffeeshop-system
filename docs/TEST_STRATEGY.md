@@ -87,6 +87,8 @@ Outbox Publisher
 자동 빌드 검증(`./gradlew clean check`)은 `test` 프로필을 기준으로 하며,
 Mock API는 테스트용으로 명시 활성화하고 Kafka Publisher와 Consumer는 비활성화한다.
 Kafka 발행 서비스는 테스트 대체 Producer로 검증하고, Consumer 위임 로직은 외부 Kafka 없이 단위 테스트로 검증한다.
+운영 프로필 설정 검증 테스트는 Consumer 활성화 시 외부 이벤트 URL이 비어 있거나
+localhost 또는 Mock API 경로이면 애플리케이션 시작이 실패하는지 확인한다.
 Redis 통합 테스트는 실제 Redis가 없는 환경에서는 JUnit Assumption으로 건너뛰며,
 일반 API 통합 테스트는 InMemory TokenStore를 주입해 외부 Redis에 의존하지 않는다.
 

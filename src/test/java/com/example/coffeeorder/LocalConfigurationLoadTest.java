@@ -88,6 +88,16 @@ class LocalConfigurationLoadTest {
         );
         assertPropertyContains(
                 propertySources,
+                "app.external-order-event.base-url",
+                "APP_EXTERNAL_ORDER_EVENT_BASE_URL"
+        );
+        assertPropertyContains(
+                propertySources,
+                "app.external-order-event.path",
+                "APP_EXTERNAL_ORDER_EVENT_PATH"
+        );
+        assertPropertyContains(
+                propertySources,
                 "app.mock-order-event.enabled",
                 "false"
         );

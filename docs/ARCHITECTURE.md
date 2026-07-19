@@ -469,6 +469,8 @@ Consumer는 `eventId`를 기준으로 중복 이벤트를 처리하지 않도록
 운영 프로필은 MySQL, Redis, Kafka 및 JWT Secret을 환경변수로 주입받는다.
 로컬 기본값이 운영에 암묵적으로 적용되지 않도록 `application-prod.yaml`에서
 운영 필수 인프라 값을 명시적으로 요구한다.
+운영에서 Kafka Consumer를 활성화하는 경우 외부 주문 이벤트 수집 URL과 Path도
+환경변수로 주입해야 하며, localhost 또는 Mock API 경로는 시작 단계에서 거부한다.
 
 ## 이벤트 모니터링 지표
 
