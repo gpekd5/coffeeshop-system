@@ -1,5 +1,8 @@
 package com.example.coffeeorder.order.controller;
 
+import static com.example.coffeeorder.testsupport.IntegrationTestFixtures.memberWithRole;
+import static com.example.coffeeorder.testsupport.IntegrationTestFixtures.menu;
+import static com.example.coffeeorder.testsupport.TestAuthTokens.accessToken;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -10,6 +13,8 @@ import java.util.UUID;
 
 import com.example.coffeeorder.common.security.JwtTokenProvider;
 import com.example.coffeeorder.common.security.TokenStore;
+import com.example.coffeeorder.testsupport.InMemoryTokenStore;
+import com.example.coffeeorder.testsupport.TestTokenStoreConfig;
 import com.example.coffeeorder.member.entity.Member;
 import com.example.coffeeorder.member.entity.MemberRole;
 import com.example.coffeeorder.member.repository.MemberRepository;
@@ -29,16 +34,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @TestPropertySource(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
-@Import(OrderControllerIntegrationTest.TestTokenStoreConfig.class)
+@Import(TestTokenStoreConfig.class)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class OrderQueryControllerIntegrationTest {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
@@ -76,7 +82,7 @@ class OrderQueryControllerIntegrationTest {
         menuRepository.deleteAll();
         memberRepository.deleteAll();
 
-        if (tokenStore instanceof OrderControllerIntegrationTest.InMemoryTokenStore inMemoryTokenStore) {
+        if (tokenStore instanceof InMemoryTokenStore inMemoryTokenStore) {
             inMemoryTokenStore.clear();
         }
     }
@@ -559,22 +565,18 @@ class OrderQueryControllerIntegrationTest {
             String name,
             MemberRole role
     ) {
-        Member member = memberRepository.saveAndFlush(Member.create(
+        Member member = memberRepository.saveAndFlush(memberWithRole(
                 email,
-                "encrypted-password",
-                name
-        ));
-        ReflectionTestUtils.setField(
-                member,
-                "role",
+                name,
                 role
-        );
-        memberRepository.saveAndFlush(member);
+        ));
 
         return new TestMember(
                 member,
-                jwtTokenProvider.createLoginTokens(member)
-                        .accessToken()
+                accessToken(
+                        jwtTokenProvider,
+                        member
+                )
         );
     }
 
@@ -583,9 +585,8 @@ class OrderQueryControllerIntegrationTest {
             MenuCategory category,
             long price
     ) {
-        return menuRepository.saveAndFlush(Menu.create(
+        return menuRepository.saveAndFlush(menu(
                 name,
-                name + " 설명",
                 category,
                 price,
                 MenuStatus.ON_SALE
