@@ -56,7 +56,11 @@ Windows PowerShell에서는 다음 명령을 사용할 수 있습니다.
 `prod` 프로필은 MySQL, Redis, Kafka, JWT Secret을 운영 환경변수로 주입받습니다.
 로컬 기본값을 운영에서 그대로 사용하지 않도록 `SPRING_DATASOURCE_URL`,
 `SPRING_DATA_REDIS_HOST`, `SPRING_KAFKA_BOOTSTRAP_SERVERS`,
-`APP_JWT_SECRET`을 설정해야 합니다.
+`APP_JWT_SECRET`, `APP_EXTERNAL_ORDER_EVENT_BASE_URL`,
+`APP_EXTERNAL_ORDER_EVENT_PATH`를 설정해야 합니다.
+`APP_KAFKA_ORDER_EVENT_CONSUMER_ENABLED=true`로 Consumer를 활성화하면
+외부 주문 이벤트 URL이 비어 있거나 localhost 또는 `/mock/v1/order-events`이면
+애플리케이션 시작 단계에서 실패합니다.
 
 테스트와 기본 빌드 검증은 다음 명령으로 실행합니다.
 

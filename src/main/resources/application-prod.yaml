@@ -24,6 +24,9 @@ spring:
 app:
   jwt:
     secret: ${APP_JWT_SECRET}
+  external-order-event:
+    base-url: ${APP_EXTERNAL_ORDER_EVENT_BASE_URL:}
+    path: ${APP_EXTERNAL_ORDER_EVENT_PATH:}
   mock-order-event:
     enabled: false
   kafka-order-event:

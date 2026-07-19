@@ -13,7 +13,6 @@ import java.time.LocalDateTime;
 
 import com.example.coffeeorder.event.dto.OrderCompletedEventRequest;
 import com.example.coffeeorder.event.metrics.ExternalOrderEventMetricsRecorder;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
@@ -34,21 +33,18 @@ public class HttpExternalOrderEventClient implements ExternalOrderEventClient {
             ObjectMapper objectMapper,
             Clock clock,
             ExternalOrderEventMetricsRecorder metricsRecorder,
-            @Value("${app.external-order-event.base-url}") String baseUrl,
-            @Value("${app.external-order-event.path}") String path,
-            @Value("${app.external-order-event.connect-timeout-millis}") long connectTimeoutMillis,
-            @Value("${app.external-order-event.response-timeout-millis}") long responseTimeoutMillis
+            ExternalOrderEventProperties properties
     ) {
         this.objectMapper = objectMapper;
         this.clock = clock;
         this.metricsRecorder = metricsRecorder;
         this.endpointUri = createEndpointUri(
-                baseUrl,
-                path
+                properties.baseUrl(),
+                properties.path()
         );
-        this.responseTimeout = Duration.ofMillis(responseTimeoutMillis);
+        this.responseTimeout = Duration.ofMillis(properties.responseTimeoutMillis());
         this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofMillis(connectTimeoutMillis))
+                .connectTimeout(Duration.ofMillis(properties.connectTimeoutMillis()))
                 .build();
     }
 
