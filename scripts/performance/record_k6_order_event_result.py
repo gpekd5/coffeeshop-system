@@ -53,7 +53,7 @@ def main():
         "avgMs": number(order_duration.get("avg")),
         "p95Ms": number(order_duration.get("p(95)")),
         "p99Ms": number(order_duration.get("p(99)")),
-        "errorRate": number(order_failed.get("rate")),
+        "errorRate": number(rate_value(order_failed)),
     }
 
     output = Path(args.output)
@@ -73,7 +73,14 @@ def metric_values(metrics, name):
     if not metric:
         raise SystemExit(f"k6 summary metric not found: {name}")
 
-    return metric.get("values", {})
+    return metric.get("values", metric)
+
+
+def rate_value(values):
+    if "rate" in values:
+        return values.get("rate")
+
+    return values.get("value")
 
 
 def number(value):

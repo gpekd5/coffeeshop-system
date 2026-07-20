@@ -6,6 +6,8 @@
 비교의 목적은 Kafka가 주문 자체를 빠르게 만든다는 주장이 아니라,
 외부 시스템 지연을 사용자 주문 응답 경로에서 분리하는 효과를 수치로 확인하는 것이다.
 
+실제 로컬 측정 결과는 `ORDER_EVENT_DELIVERY_PERFORMANCE_RESULT_2026-07-20.md`에 기록한다.
+
 ---
 
 ## 1. 비교 대상
@@ -110,6 +112,7 @@ k6 run `
   -e USER_COUNT=10 `
   -e DURATION=1m `
   -e MENU_ID=9101 `
+  -e CART_PREPARE_RETRIES=3 `
   --summary-export build/performance/sync-300.json `
   performance/k6/order-event-delivery-comparison.js
 ```
@@ -122,6 +125,7 @@ k6 run `
 | `outbox` | `0ms`, `300ms`, `1000ms` |
 
 k6 스크립트는 회원가입, 로그인, 포인트 충전, 장바구니 준비를 수행한다.
+장바구니 준비 단계는 주문 API 측정 대상이 아니므로, 일시적인 5xx 응답은 `CART_PREPARE_RETRIES` 횟수만큼 짧게 재시도한다.
 그래프에 사용하는 커스텀 지표는 `POST /api/v1/orders` 요청만 기록한 `order_api_duration`이다.
 
 ---
