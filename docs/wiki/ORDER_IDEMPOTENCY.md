@@ -124,6 +124,60 @@ OrderController
 
 ---
 
+## 실제 적용 코드
+
+### 적용 파일 경로
+
+| 파일 | 역할 |
+| --- | --- |
+| `src/main/java/com/example/coffeeorder/order/controller/OrderController.java` | `Idempotency-Key` 헤더 수신 |
+| `src/main/java/com/example/coffeeorder/order/facade/OrderFacade.java` | 멱등키 정규화, Unique 충돌 시 기존 주문 재조회 |
+| `src/main/java/com/example/coffeeorder/order/service/OrderTransactionService.java` | 기존 주문 선조회와 기존 결과 반환 |
+| `src/main/java/com/example/coffeeorder/order/entity/Order.java` | `(member_id, idempotency_key)` Unique 제약 |
+| `src/main/java/com/example/coffeeorder/order/repository/OrderRepository.java` | 회원과 멱등키 기준 주문 조회 |
+
+### 호출 흐름
+
+```text
+OrderController
+→ Idempotency-Key Header 추출
+→ OrderFacade.normalizeIdempotencyKey()
+→ OrderTransactionService.findExistingOrderResult()
+→ 없으면 신규 주문 저장
+→ 동시 INSERT 충돌 시 DataIntegrityViolationException
+→ OrderTransactionService.findProcessedOrder()
+→ 기존 주문 결과 반환
+```
+
+### 핵심 코드만 짧게 발췌
+
+```java
+@UniqueConstraint(
+        name = "uk_orders_member_idempotency_key",
+        columnNames = {"member_id", "idempotency_key"}
+)
+```
+
+```java
+try {
+    OrderCreateResult result = orderTransactionService.createOrder(...);
+    return result;
+} catch (DataIntegrityViolationException exception) {
+    return orderTransactionService.findProcessedOrder(memberId, normalizedIdempotencyKey);
+}
+```
+
+```java
+return orderRepository.findByMember_IdAndIdempotencyKey(memberId, idempotencyKey)
+        .map(this::createAlreadyProcessedResult);
+```
+
+### 이 코드가 해당 개념을 구현하는 이유
+
+애플리케이션 레벨에서는 먼저 기존 주문을 조회해 빠르게 같은 결과를 반환한다. 하지만 동시 요청에서는 두 요청이 모두 "기존 주문 없음"을 볼 수 있으므로 DB의 `(member_id, idempotency_key)` Unique 제약이 최종 방어선이 된다. 충돌한 요청은 예외를 그대로 실패시키지 않고 기존 주문을 다시 조회해 멱등한 응답으로 변환한다.
+
+---
+
 ## 8. 한계와 개선 방향
 
 현재 멱등키는 같은 회원의 동일 key만 구분한다.

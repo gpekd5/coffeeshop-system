@@ -113,6 +113,67 @@ ExternalOrderEventMetricsRecorder
 
 ---
 
+## 실제 적용 코드
+
+### 적용 파일 경로
+
+| 파일 | 역할 |
+| --- | --- |
+| `src/main/java/com/example/coffeeorder/event/outbox/controller/AdminOutboxEventController.java` | Outbox 목록 조회와 수동 재처리 API |
+| `src/main/java/com/example/coffeeorder/event/kafka/consumer/controller/AdminProcessedKafkaEventController.java` | Kafka Consumer 처리 이력 조회 API |
+| `src/main/java/com/example/coffeeorder/event/kafka/consumer/controller/AdminDeadLetterOrderEventController.java` | Dead Letter 목록/상세 조회 API |
+| `src/main/java/com/example/coffeeorder/event/metrics/EventMonitoringMeterBinder.java` | Outbox 상태, 오래된 Pending, Dead Letter Gauge |
+| `src/main/java/com/example/coffeeorder/event/metrics/KafkaConsumerMetricsRecorder.java` | Consumer 성공/실패/중복 스킵 Counter |
+| `src/main/java/com/example/coffeeorder/event/metrics/ExternalOrderEventMetricsRecorder.java` | 외부 API 성공/실패/Timeout Counter |
+
+### 호출 흐름
+
+```text
+관리자 조회
+→ /api/v1/admin/outbox-events
+→ /api/v1/admin/processed-kafka-events
+→ /api/v1/admin/dead-letter-order-events
+
+Prometheus 수집
+→ /actuator/prometheus
+→ EventMonitoringMeterBinder Gauge
+→ KafkaConsumerMetricsRecorder Counter
+→ ExternalOrderEventMetricsRecorder Counter
+```
+
+### 핵심 코드만 짧게 발췌
+
+```java
+@RequestMapping("/api/v1/admin/outbox-events")
+public class AdminOutboxEventController {
+    @GetMapping
+    public ResponseEntity<ApiResponse<PageResponse<OutboxEventResponse>>> getOutboxEvents(...) { ... }
+
+    @PostMapping("/{eventId}/retry")
+    public ResponseEntity<ApiResponse<OutboxEventResponse>> retryOutboxEvent(...) { ... }
+}
+```
+
+```java
+Gauge.builder(
+        OUTBOX_EVENTS_METRIC,
+        outboxEventRepository,
+        repository -> repository.countByStatus(status)
+).tag("status", status.name()).register(registry);
+```
+
+```java
+public void recordDuplicateSkip() {
+    duplicateSkipCounter.increment();
+}
+```
+
+### 이 코드가 해당 개념을 구현하는 이유
+
+운영자는 관리자 API로 Outbox, Consumer 처리 이력, Dead Letter를 직접 조회하고 재처리할 수 있다. 동시에 Micrometer 지표가 `/actuator/prometheus`로 노출되므로 Grafana나 Prometheus Alert에서 이벤트 적체, 실패 증가, 중복 스킵, 외부 API Timeout 같은 상태를 지속적으로 관찰할 수 있다.
+
+---
+
 ## 7. 한계와 개선 방향
 
 현재 애플리케이션은 Prometheus가 수집할 수 있는 지표와 관리자 조회 API를 제공한다.

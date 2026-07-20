@@ -108,6 +108,69 @@ PROCESSING lease가 만료되면 재처리할 수 있다.
 
 ---
 
+## 실제 적용 코드
+
+### 적용 파일 경로
+
+| 파일 | 역할 |
+| --- | --- |
+| `src/main/java/com/example/coffeeorder/event/kafka/consumer/OrderCompletedEventConsumer.java` | Kafka Topic과 DLT 수신 |
+| `src/main/java/com/example/coffeeorder/event/kafka/consumer/OrderCompletedEventProcessor.java` | 메시지 역직렬화, 중복 판단, 외부 API 호출 |
+| `src/main/java/com/example/coffeeorder/event/kafka/consumer/service/ProcessedKafkaEventService.java` | 처리 시작/완료/실패 상태 관리 |
+| `src/main/java/com/example/coffeeorder/event/kafka/consumer/entity/ProcessedKafkaEvent.java` | `eventId` 기준 처리 이력과 lease 상태 |
+| `src/main/java/com/example/coffeeorder/event/kafka/consumer/repository/ProcessedKafkaEventRepository.java` | 처리 이력 비관적 쓰기 잠금 |
+
+### 호출 흐름
+
+```text
+Kafka order.completed 메시지
+→ OrderCompletedEventConsumer.consume()
+→ OrderCompletedEventProcessor.process()
+→ ProcessedKafkaEventService.beginProcessing()
+→ 새 이벤트면 PROCESSING 저장
+→ COMPLETED 또는 lease 유효 PROCESSING이면 중복 스킵
+→ 외부 API 호출
+→ 성공: COMPLETED
+→ 실패: FAILED 후 Kafka 재시도/DLT 흐름
+```
+
+### 핵심 코드만 짧게 발췌
+
+```java
+boolean shouldProcess = processedKafkaEventService.beginProcessing(...);
+
+if (!shouldProcess) {
+    kafkaConsumerMetricsRecorder.recordDuplicateSkip();
+    return;
+}
+```
+
+```java
+ProcessedKafkaEvent event = processedKafkaEventRepository
+        .findByEventIdForUpdate(eventId)
+        .orElse(null);
+
+if (event == null) {
+    processedKafkaEventRepository.saveAndFlush(ProcessedKafkaEvent.start(...));
+    return true;
+}
+
+if (event.isCompleted() || event.isProcessingLeaseActive(now)) {
+    return false;
+}
+```
+
+```java
+@Lock(LockModeType.PESSIMISTIC_WRITE)
+Optional<ProcessedKafkaEvent> findByEventIdForUpdate(@Param("eventId") String eventId);
+```
+
+### 이 코드가 해당 개념을 구현하는 이유
+
+Kafka는 At-Least-Once 전송 특성상 같은 메시지가 다시 들어올 수 있다. Consumer는 외부 API를 호출하기 전에 `processed_kafka_events`를 `eventId` 기준으로 잠그고 처리 상태를 확인한다. 이미 `COMPLETED`인 이벤트나 아직 lease가 유효한 `PROCESSING` 이벤트는 외부 API를 다시 호출하지 않으므로 중복 소비가 중복 처리로 이어지지 않는다.
+
+---
+
 ## 7. 한계와 개선 방향
 
 현재 Consumer 멱등성은 애플리케이션 DB의 `processed_kafka_events`를 기준으로 한다.

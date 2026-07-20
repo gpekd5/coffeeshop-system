@@ -113,6 +113,65 @@ Controller는 검증 실패 응답 형식을 직접 알 필요가 없다.
 
 ---
 
+## 실제 적용 코드
+
+### 적용 파일 경로
+
+| 파일 | 역할 |
+| --- | --- |
+| `src/main/java/com/example/coffeeorder/common/exception/GlobalExceptionHandler.java` | 검증 예외를 `ApiResponse<ValidationErrorResponse>`로 변환 |
+| `src/main/java/com/example/coffeeorder/common/response/ValidationErrorResponse.java` | `data.errors[]` 응답 DTO와 필드명 추출 |
+| `src/main/java/com/example/coffeeorder/common/response/ApiResponse.java` | 공통 성공/실패 응답 래퍼 |
+
+### 호출 흐름
+
+```text
+Controller 요청 검증 실패
+→ MethodArgumentNotValidException / BindException
+→ ConstraintViolationException / HandlerMethodValidationException
+→ MissingServletRequestParameterException
+→ GlobalExceptionHandler
+→ ValidationErrorResponse
+→ ApiResponse.error(errorCode, response)
+```
+
+### 핵심 코드만 짧게 발췌
+
+```java
+@ExceptionHandler(MethodArgumentNotValidException.class)
+public ResponseEntity<ApiResponse<ValidationErrorResponse>> handleMethodArgumentNotValidException(...) {
+    ValidationErrorResponse response =
+            ValidationErrorResponse.from(exception.getBindingResult());
+
+    return ResponseEntity.status(errorCode.getStatus())
+            .body(ApiResponse.error(errorCode, response));
+}
+```
+
+```java
+@ExceptionHandler(HandlerMethodValidationException.class)
+public ResponseEntity<ApiResponse<ValidationErrorResponse>> handleHandlerMethodValidationException(...) {
+    ValidationErrorResponse response =
+            ValidationErrorResponse.fromParameterValidationResults(
+                    exception.getParameterValidationResults()
+            );
+    return ResponseEntity.status(errorCode.getStatus())
+            .body(ApiResponse.error(errorCode, response));
+}
+```
+
+```java
+public record ValidationErrorResponse(List<FieldErrorResponse> errors) {
+    public record FieldErrorResponse(String field, String message) { }
+}
+```
+
+### 이 코드가 해당 개념을 구현하는 이유
+
+요청 Body 검증 실패뿐 아니라 Query Parameter, Path Variable, 필수 파라미터 누락도 같은 `ValidationErrorResponse`로 모은다. `ApiResponse.error(errorCode, response)`를 사용하므로 공통 에러 응답의 `data`에 항상 `errors[]`가 들어가고, 클라이언트는 검증 실패 위치와 메시지를 일관된 구조로 처리할 수 있다.
+
+---
+
 ## 8. 한계와 개선 방향
 
 현재 구조는 검증 오류 메시지를 서버에서 문자열로 내려준다.
