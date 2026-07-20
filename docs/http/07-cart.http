@@ -1,0 +1,63 @@
+### Clear USER cart
+DELETE {{baseUrl}}/api/v1/cart/items
+Authorization: Bearer {{userAccessToken}}
+
+### USER empty cart
+GET {{baseUrl}}/api/v1/cart
+Authorization: Bearer {{userAccessToken}}
+
+### Add Americano for order
+POST {{baseUrl}}/api/v1/cart/items
+Authorization: Bearer {{userAccessToken}}
+Content-Type: application/json
+
+{
+  "menuId": {{seedAmericanoMenuId}},
+  "quantity": 2
+}
+
+> {%
+client.global.set("cartItemId", response.body.data.cartItemId);
+%}
+
+### Add Decaf Cold Brew for order
+POST {{baseUrl}}/api/v1/cart/items
+Authorization: Bearer {{userAccessToken}}
+Content-Type: application/json
+
+{
+  "menuId": {{seedDecafMenuId}},
+  "quantity": 1
+}
+
+### Add Latte for delete API check
+POST {{baseUrl}}/api/v1/cart/items
+Authorization: Bearer {{userAccessToken}}
+Content-Type: application/json
+
+{
+  "menuId": {{seedLatteMenuId}},
+  "quantity": 1
+}
+
+> {%
+client.global.set("cartItemToDeleteId", response.body.data.cartItemId);
+%}
+
+### Delete Latte cart item
+DELETE {{baseUrl}}/api/v1/cart/items/{{cartItemToDeleteId}}
+Authorization: Bearer {{userAccessToken}}
+
+### Update Americano quantity
+PATCH {{baseUrl}}/api/v1/cart/items/{{cartItemId}}
+Authorization: Bearer {{userAccessToken}}
+Content-Type: application/json
+
+{
+  "quantity": 2
+}
+
+### USER cart ready for order
+GET {{baseUrl}}/api/v1/cart
+Authorization: Bearer {{userAccessToken}}
+

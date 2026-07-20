@@ -24,12 +24,17 @@ class LocalConfigurationLoadTest {
         assertPropertyContains(
                 propertySources,
                 "spring.datasource.url",
-                "jdbc:mysql://localhost:3306/coffee_order"
+                "jdbc:mysql://localhost:3307/coffee_order"
         );
         assertPropertyContains(
                 propertySources,
                 "spring.datasource.username",
                 "coffee"
+        );
+        assertPropertyContains(
+                propertySources,
+                "spring.jpa.hibernate.ddl-auto",
+                "SPRING_JPA_HIBERNATE_DDL_AUTO:update"
         );
         assertPropertyContains(
                 propertySources,

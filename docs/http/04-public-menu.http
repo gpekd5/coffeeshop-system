@@ -1,0 +1,12 @@
+### Public menu list
+GET {{baseUrl}}/api/v1/menus?page=0&size=20&sort=createdAt,desc
+
+### Public COFFEE menu list
+GET {{baseUrl}}/api/v1/menus?category=COFFEE&status=ON_SALE&page=0&size=20&sort=createdAt,desc
+
+### Public menu detail
+GET {{baseUrl}}/api/v1/menus/{{seedAmericanoMenuId}}
+
+### Popular menu before/after orders
+GET {{baseUrl}}/api/v1/menus/popular
+

@@ -1,0 +1,2 @@
+### Popular menu after order
+GET {{baseUrl}}/api/v1/menus/popular

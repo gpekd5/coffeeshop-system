@@ -114,6 +114,9 @@ Windows PowerShell에서는 다음 명령을 사용할 수 있습니다.
 .\gradlew.bat bootRun
 ```
 
+로컬 API를 직접 눌러볼 때는 [HTTP 데모 파일](./docs/http/README.md)을 사용할 수 있습니다.
+기본 계정과 메뉴를 만들려면 애플리케이션 실행 후 `docs/http/00-local-demo-data.sql`을 실행합니다.
+
 ---
 
 ## 주요 환경변수
@@ -124,9 +127,10 @@ Windows PowerShell에서는 다음 명령을 사용할 수 있습니다.
 
 | 환경변수 | 기본값 | 설명 |
 | --- | --- | --- |
-| `SPRING_DATASOURCE_URL` | `jdbc:mysql://localhost:3306/coffee_order...` | MySQL 접속 URL |
+| `SPRING_DATASOURCE_URL` | `jdbc:mysql://localhost:3307/coffee_order...` | MySQL 접속 URL |
 | `SPRING_DATASOURCE_USERNAME` | `coffee` | MySQL 사용자 |
 | `SPRING_DATASOURCE_PASSWORD` | `coffee` | MySQL 비밀번호 |
+| `SPRING_JPA_HIBERNATE_DDL_AUTO` | `update` | 로컬 JPA DDL 전략 |
 | `SPRING_DATA_REDIS_HOST` | `localhost` | Redis Host |
 | `SPRING_DATA_REDIS_PORT` | `6379` | Redis Port |
 | `APP_JWT_SECRET` | 로컬 개발용 기본값 | JWT 서명 키 |
