@@ -116,6 +116,9 @@ Windows PowerShell에서는 다음 명령을 사용할 수 있습니다.
 
 로컬 API를 직접 눌러볼 때는 [HTTP 데모 파일](./docs/http/README.md)을 사용할 수 있습니다.
 기본 계정과 메뉴를 만들려면 애플리케이션 실행 후 `docs/http/00-local-demo-data.sql`을 실행합니다.
+IntelliJ HTTP Client에서는 실행 환경을 `local`로 선택한 뒤 `docs/http`의 번호 순서대로 요청을 실행합니다.
+주문 데모인 `08-order.http`는 고정 `Idempotency-Key`를 사용하므로, 새 주문을 다시 만들 때는
+`@orderIdempotencyKey` 값을 다른 UUID로 바꾸고 `07-cart.http`로 장바구니를 다시 채운 뒤 실행합니다.
 
 ---
 
