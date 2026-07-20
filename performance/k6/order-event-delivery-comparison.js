@@ -1,5 +1,5 @@
 import http from 'k6/http';
-import { check, fail, group } from 'k6';
+import { check, fail, group, sleep } from 'k6';
 import { Rate, Trend } from 'k6/metrics';
 
 const baseUrl = __ENV.BASE_URL || 'http://localhost:8080';
@@ -9,12 +9,14 @@ const userCount = Number(__ENV.USER_COUNT || String(vus));
 const menuId = Number(__ENV.MENU_ID || '9101');
 const quantity = Number(__ENV.ORDER_QUANTITY || '1');
 const pointAmount = Number(__ENV.POINT_AMOUNT || '1000000');
+const cartPrepareRetries = Number(__ENV.CART_PREPARE_RETRIES || '3');
 const password = __ENV.PERF_USER_PASSWORD || 'Password123!';
 const runId = __ENV.RUN_ID || `${Date.now()}`;
 
 export const options = {
   vus,
   duration,
+  summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
   thresholds: {
     order_api_failed: ['rate<0.01'],
     order_api_duration: ['p(95)<2000'],
@@ -72,7 +74,11 @@ export default function (data) {
         menuId,
         quantity,
       },
-      user.accessToken
+      user.accessToken,
+      {
+        retries: cartPrepareRetries,
+        retryDelaySeconds: 0.1,
+      }
     );
   });
 
@@ -95,12 +101,24 @@ export default function (data) {
   orderApiFailed.add(!orderSucceeded);
 }
 
-function postJson(path, body, accessToken = null) {
-  const response = http.post(
-    `${baseUrl}${path}`,
-    JSON.stringify(body),
-    jsonParams(accessToken)
-  );
+function postJson(path, body, accessToken = null, options = {}) {
+  const retries = options.retries || 0;
+  const retryDelaySeconds = options.retryDelaySeconds || 0;
+  let response;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    response = http.post(
+      `${baseUrl}${path}`,
+      JSON.stringify(body),
+      jsonParams(accessToken)
+    );
+
+    if (response.status < 500 || attempt === retries) {
+      break;
+    }
+
+    sleep(retryDelaySeconds);
+  }
 
   if (response.status >= 400) {
     fail(
