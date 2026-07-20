@@ -15,6 +15,7 @@
 | [외부 주문 이벤트 전송 실패](TROUBLESHOOTING_EVENT_002_EXTERNAL_ORDER_EVENT_FAILURE.md) | 주문은 완료됐지만 외부 데이터 수집 플랫폼 전송이 실패하거나 Timeout 됨 |
 | [Outbox/Kafka 발행 적체](TROUBLESHOOTING_EVENT_003_OUTBOX_KAFKA_STUCK.md) | `outbox_events`가 `PENDING` 또는 `FAILED` 상태에 오래 머무름 |
 | [Kafka Consumer 중복 처리와 Dead Letter](TROUBLESHOOTING_EVENT_004_KAFKA_CONSUMER_DUPLICATE_OR_DLT.md) | 같은 이벤트가 중복 소비되거나 Dead Letter 이벤트가 증가함 |
+| [주문 처리 중 Outbox Payload 컬럼 크기 문제](TROUBLESHOOTING_ORDER_001_OUTBOX_PAYLOAD_COLUMN_TOO_SMALL.md) | 새 멱등키와 정상 장바구니로 주문해도 `ORDER_PROCESSING_CONFLICT`가 반복됨 |
 
 ---
 
