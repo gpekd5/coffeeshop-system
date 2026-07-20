@@ -63,6 +63,8 @@ DB Transaction 시작
 | 실패/Timeout은 로그로 기록 | 완료된 주문 상태를 변경하지 않음 |
 
 Mock API는 실제 외부 수집 플랫폼 대신 정상, 실패, 지연, Timeout을 재현하는 학습용 API다.
+현재 구현에서는 성능 비교가 필요할 때 `APP_ORDER_EVENT_DELIVERY_MODE=sync`로 이 1차 흐름을 켤 수 있다.
+기본값인 `outbox`에서는 주문 API가 외부 API를 직접 호출하지 않고 Outbox/Kafka 흐름으로 분리한다.
 
 ---
 

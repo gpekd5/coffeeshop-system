@@ -460,6 +460,13 @@ Consumer는 `eventId`를 기준으로 중복 이벤트를 처리하지 않도록
 
 ## 프로필별 외부 이벤트 설정
 
+주문 완료 이벤트 전송 방식은 `app.order-event-delivery.mode`로 선택한다.
+
+| 모드 | 용도 | 처리 방식 |
+|---|---|---|
+| `sync` | 성능 비교용 1차 동기 전송 실험 | 주문 Commit 이후 외부 Mock API를 동기 호출 |
+| `outbox` | 기본 운영 흐름 | 주문 트랜잭션에서 Outbox Event 저장 후 Publisher/Consumer가 비동기 처리 |
+
 | 프로필 | Mock API | Kafka Publisher | Kafka Consumer |
 |---|---|---|---|
 | `local` | 기본 활성화. 로컬 학습과 지연, 실패, Timeout 재현에 사용 | 기본 비활성화. 명시적으로 켤 때만 Outbox 이벤트를 Kafka로 발행 | 기본 비활성화. 명시적으로 켤 때만 Kafka 이벤트를 소비 |

@@ -33,6 +33,8 @@ management:
 
 app:
   time-zone: Asia/Seoul
+  order-event-delivery:
+    mode: ${APP_ORDER_EVENT_DELIVERY_MODE:outbox}
   jwt:
     secret: ${APP_JWT_SECRET:local-development-jwt-secret-key-please-change}
     access-token-expires-in-seconds: ${APP_JWT_ACCESS_TOKEN_EXPIRES_IN_SECONDS:1800}

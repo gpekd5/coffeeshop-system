@@ -4,7 +4,7 @@
 
 ## 실행 전 준비
 
-1. MySQL과 Redis를 실행한다.
+1. MySQL, Redis, Kafka를 실행한다.
 
 ```powershell
 docker-compose up -d

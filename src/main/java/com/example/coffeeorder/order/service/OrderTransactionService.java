@@ -80,6 +80,19 @@ public class OrderTransactionService {
             Long memberId,
             String idempotencyKey
     ) {
+        return createOrder(
+                memberId,
+                idempotencyKey,
+                true
+        );
+    }
+
+    @Transactional
+    public OrderCreateResult createOrder(
+            Long memberId,
+            String idempotencyKey,
+            boolean saveOutboxEvent
+    ) {
         Optional<OrderCreateResult> existingResult =
                 findExistingOrderResult(
                         memberId,
@@ -153,11 +166,14 @@ public class OrderTransactionService {
                 totalAmount,
                 point.getBalance()
         );
-        outboxEventService.saveOrderCompletedEvent(
-                memberId,
-                response,
-                now
-        );
+
+        if (saveOutboxEvent) {
+            outboxEventService.saveOrderCompletedEvent(
+                    memberId,
+                    response,
+                    now
+            );
+        }
 
         return OrderCreateResult.created(response);
     }
