@@ -1341,6 +1341,10 @@ Mock API 지연 시간을 변경한다.
 | 재처리 | 별도 구현 필요 | Outbox 및 Consumer 재시도 |
 | 중복 처리 | 재시도 시 가능 | Event ID 기반 차단 |
 
+실행 환경은 `APP_ORDER_EVENT_DELIVERY_MODE=sync|outbox`로 구분한다.
+성능 측정 스크립트는 `performance/k6/order-event-delivery-comparison.js`를 사용하고,
+결과 기록과 그래프 생성 절차는 `docs/performance/ORDER_EVENT_DELIVERY_PERFORMANCE_TEST.md`에 남긴다.
+
 ---
 
 # 15. 다중 인스턴스 테스트
