@@ -56,7 +56,8 @@ docker-compose up -d
 ```
 
 애플리케이션 실행 전에 `docs/http/00-local-demo-data.sql`로 기본 메뉴를 준비한다.
-k6 스크립트의 기본 `MENU_ID`는 `1`이므로, 다른 메뉴 ID를 사용할 경우 `-e MENU_ID=...`로 지정한다.
+k6 스크립트의 기본 `MENU_ID`는 데모 데이터의 아메리카노 메뉴 ID인 `9101`이다.
+다른 메뉴 ID를 사용할 경우 `-e MENU_ID=...`로 지정한다.
 
 ---
 
@@ -108,7 +109,7 @@ k6 run `
   -e VUS=10 `
   -e USER_COUNT=10 `
   -e DURATION=1m `
-  -e MENU_ID=1 `
+  -e MENU_ID=9101 `
   --summary-export build/performance/sync-300.json `
   performance/k6/order-event-delivery-comparison.js
 ```
