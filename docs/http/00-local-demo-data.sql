@@ -13,6 +13,9 @@ SET @seed_sold_out_id = 9105;
 SET @demo_password = '$2a$10$.fNPn0FGcwp1sCkel/KJVutSAYhDdilciz.owW90GEmL66xnRMEFC';
 SET @now = NOW(6);
 
+ALTER TABLE outbox_events MODIFY payload TEXT NOT NULL;
+ALTER TABLE dead_letter_order_events MODIFY payload TEXT NOT NULL;
+
 DROP TEMPORARY TABLE IF EXISTS local_demo_member_ids;
 CREATE TEMPORARY TABLE local_demo_member_ids (
     id BIGINT PRIMARY KEY
@@ -234,4 +237,3 @@ INSERT INTO menus (
 DROP TEMPORARY TABLE IF EXISTS local_demo_order_ids;
 DROP TEMPORARY TABLE IF EXISTS local_demo_cart_ids;
 DROP TEMPORARY TABLE IF EXISTS local_demo_member_ids;
-

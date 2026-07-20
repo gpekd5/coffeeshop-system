@@ -56,7 +56,10 @@ public class DeadLetterOrderEvent extends BaseEntity {
     private Long kafkaOffset;
 
     @Lob
-    @Column(nullable = false)
+    @Column(
+            nullable = false,
+            columnDefinition = "TEXT"
+    )
     private String payload;
 
     @Column(
