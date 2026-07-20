@@ -1,0 +1,52 @@
+### Mock order event success
+POST {{baseUrl}}/mock/v1/order-events?delayMillis=0&status=200
+Content-Type: application/json
+
+{
+  "eventId": "22222222-2222-4222-8222-222222222222",
+  "eventType": "ORDER_COMPLETED",
+  "orderId": 1,
+  "orderNumber": "LOCAL-MOCK-ORDER-1",
+  "memberId": {{demoUserId}},
+  "orderChannel": "WEB_CART",
+  "items": [
+    {
+      "menuId": {{seedAmericanoMenuId}},
+      "menuName": "아메리카노",
+      "menuCategory": "COFFEE",
+      "unitPrice": 3000,
+      "quantity": 1,
+      "lineAmount": 3000
+    }
+  ],
+  "totalAmount": 3000,
+  "paymentMethod": "POINT",
+  "orderedAt": "2026-07-20T12:00:00"
+}
+
+### Mock order event delayed success
+POST {{baseUrl}}/mock/v1/order-events?delayMillis=500&status=202
+Content-Type: application/json
+
+{
+  "eventId": "33333333-3333-4333-8333-333333333333",
+  "eventType": "ORDER_COMPLETED",
+  "orderId": 2,
+  "orderNumber": "LOCAL-MOCK-ORDER-2",
+  "memberId": {{demoUserId}},
+  "orderChannel": "WEB_CART",
+  "items": [
+    {
+      "menuId": {{seedDecafMenuId}},
+      "menuName": "디카페인 콜드브루",
+      "menuCategory": "DECAF",
+      "unitPrice": 5000,
+      "quantity": 1,
+      "lineAmount": 5000
+    }
+  ],
+  "totalAmount": 5000,
+  "paymentMethod": "POINT",
+  "orderedAt": "2026-07-20T12:01:00"
+}
+

@@ -1,0 +1,21 @@
+### USER point balance
+GET {{baseUrl}}/api/v1/points
+Authorization: Bearer {{userAccessToken}}
+
+### Charge USER points
+POST {{baseUrl}}/api/v1/points/charge
+Authorization: Bearer {{userAccessToken}}
+Content-Type: application/json
+
+{
+  "amount": 10000
+}
+
+### USER point histories
+GET {{baseUrl}}/api/v1/points/histories?page=0&size=20&sort=createdAt,desc
+Authorization: Bearer {{userAccessToken}}
+
+### USER charge histories
+GET {{baseUrl}}/api/v1/points/histories?type=CHARGE&page=0&size=20&sort=createdAt,desc
+Authorization: Bearer {{userAccessToken}}
+

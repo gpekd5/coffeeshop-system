@@ -1,0 +1,50 @@
+### Create menu as ADMIN
+POST {{baseUrl}}/api/v1/admin/menus
+Authorization: Bearer {{adminAccessToken}}
+Content-Type: application/json
+
+{
+  "name": "HTTP 테스트 콜드브루 {{$uuid}}",
+  "description": "HTTP Client로 등록한 로컬 테스트 메뉴",
+  "category": "COFFEE",
+  "price": 5200,
+  "status": "ON_SALE"
+}
+
+> {%
+client.global.set("adminMenuId", response.body.data.menuId);
+%}
+
+### Update created menu
+PATCH {{baseUrl}}/api/v1/admin/menus/{{adminMenuId}}
+Authorization: Bearer {{adminAccessToken}}
+Content-Type: application/json
+
+{
+  "name": "HTTP 테스트 콜드브루 수정",
+  "description": "관리자 메뉴 수정 API 확인",
+  "category": "DECAF",
+  "price": 5400
+}
+
+### Change created menu to SOLD_OUT
+PATCH {{baseUrl}}/api/v1/admin/menus/{{adminMenuId}}/status
+Authorization: Bearer {{adminAccessToken}}
+Content-Type: application/json
+
+{
+  "status": "SOLD_OUT"
+}
+
+### Change created menu back to ON_SALE
+PATCH {{baseUrl}}/api/v1/admin/menus/{{adminMenuId}}/status
+Authorization: Bearer {{adminAccessToken}}
+Content-Type: application/json
+
+{
+  "status": "ON_SALE"
+}
+
+### Delete created menu
+DELETE {{baseUrl}}/api/v1/admin/menus/{{adminMenuId}}
+Authorization: Bearer {{adminAccessToken}}

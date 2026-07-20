@@ -1,0 +1,31 @@
+### ADMIN order list
+GET {{baseUrl}}/api/v1/admin/orders?page=0&size=20&sort=orderedAt,desc
+Authorization: Bearer {{adminAccessToken}}
+
+### ADMIN order detail
+GET {{baseUrl}}/api/v1/admin/orders/{{orderId}}
+Authorization: Bearer {{adminAccessToken}}
+
+### ADMIN Outbox events
+GET {{baseUrl}}/api/v1/admin/outbox-events?page=0&size=20&sort=createdAt,desc
+Authorization: Bearer {{adminAccessToken}}
+
+> {%
+const outboxContent = response.body.data.content;
+if (outboxContent.length > 0) {
+  client.global.set("outboxEventId", outboxContent[0].eventId);
+}
+%}
+
+### ADMIN pending Outbox events
+GET {{baseUrl}}/api/v1/admin/outbox-events?status=PENDING&page=0&size=20&sort=createdAt,desc
+Authorization: Bearer {{adminAccessToken}}
+
+### ADMIN processed Kafka events
+GET {{baseUrl}}/api/v1/admin/processed-kafka-events?page=0&size=20&sort=createdAt,desc
+Authorization: Bearer {{adminAccessToken}}
+
+### ADMIN Dead Letter order events
+GET {{baseUrl}}/api/v1/admin/dead-letter-order-events?page=0&size=20&sort=createdAt,desc
+Authorization: Bearer {{adminAccessToken}}
+

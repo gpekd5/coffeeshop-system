@@ -61,7 +61,10 @@ public class OutboxEvent extends BaseEntity {
     private String eventType;
 
     @Lob
-    @Column(nullable = false)
+    @Column(
+            nullable = false,
+            columnDefinition = "TEXT"
+    )
     private String payload;
 
     @Enumerated(EnumType.STRING)

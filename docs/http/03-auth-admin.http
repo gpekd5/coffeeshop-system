@@ -1,0 +1,18 @@
+### Demo ADMIN login
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{demoPassword}}"
+}
+
+> {%
+client.global.set("adminAccessToken", response.body.data.accessToken);
+client.global.set("adminRefreshToken", response.body.data.refreshToken);
+%}
+
+### ADMIN my info
+GET {{baseUrl}}/api/v1/members/me
+Authorization: Bearer {{adminAccessToken}}
+

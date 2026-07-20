@@ -1,0 +1,28 @@
+### Demo USER login
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{userEmail}}",
+  "password": "{{demoPassword}}"
+}
+
+> {%
+client.global.set("userAccessToken", response.body.data.accessToken);
+client.global.set("userRefreshToken", response.body.data.refreshToken);
+%}
+
+### USER my info
+GET {{baseUrl}}/api/v1/members/me
+Authorization: Bearer {{userAccessToken}}
+
+### Signup throwaway USER
+POST {{baseUrl}}/api/v1/auth/signup
+Content-Type: application/json
+
+{
+  "email": "demo-{{$uuid}}@example.com",
+  "password": "{{demoPassword}}",
+  "name": "신규 테스트 사용자"
+}
+

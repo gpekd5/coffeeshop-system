@@ -1,0 +1,25 @@
+@orderIdempotencyKey = 550e8400-e29b-41d4-a716-446655440001
+
+### Create cart order with point payment
+POST {{baseUrl}}/api/v1/orders
+Authorization: Bearer {{userAccessToken}}
+Idempotency-Key: {{orderIdempotencyKey}}
+
+> {%
+client.global.set("orderId", response.body.data.orderId);
+client.global.set("orderNumber", response.body.data.orderNumber);
+%}
+
+### USER order list
+GET {{baseUrl}}/api/v1/orders?page=0&size=20&sort=orderedAt,desc
+Authorization: Bearer {{userAccessToken}}
+
+### USER order detail
+GET {{baseUrl}}/api/v1/orders/{{orderId}}
+Authorization: Bearer {{userAccessToken}}
+
+### Re-request same idempotency key
+POST {{baseUrl}}/api/v1/orders
+Authorization: Bearer {{userAccessToken}}
+Idempotency-Key: {{orderIdempotencyKey}}
+

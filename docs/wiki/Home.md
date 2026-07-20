@@ -10,7 +10,11 @@
 | [주문 멱등성 처리 전략](ORDER_IDEMPOTENCY.md) | 재시도와 동시 요청에서도 중복 주문을 막는 방법 |
 | [포인트 동시성 제어 전략](POINT_CONCURRENCY_CONTROL.md) | 같은 회원의 동시 주문에서 포인트 초과 차감을 막는 방법 |
 | [Redis 기반 토큰 상태 관리](REDIS_TOKEN_STATE_MANAGEMENT.md) | Access Token Blacklist, Refresh Token Whitelist, Rotation 원자성 |
-| [최근 7일 인기 메뉴 집계 전략](POPULAR_MENU_AGGREGATION.md) | 주문 수량이 아니라 주문별 메뉴 등장 횟수를 집계하는 방법 |
+| [최근 7일 인기 메뉴 DB 집계와 캐시 확장 전략](POPULAR_MENU_AGGREGATION.md) | 현재 DB 집계 기준과 향후 Redis 캐시 확장 기준 |
+| [외부 API 장애 처리와 Mock API 전략](EXTERNAL_ORDER_EVENT_AND_MOCK_API.md) | 외부 시스템 실패가 완료 주문을 Rollback하지 않게 분리하는 방법 |
+| [Transactional Outbox 설계](TRANSACTIONAL_OUTBOX.md) | 주문과 이벤트 저장을 같은 트랜잭션으로 묶고 Kafka 발행을 분리하는 방법 |
+| [Kafka Consumer 멱등성 전략](KAFKA_CONSUMER_IDEMPOTENCY.md) | 중복 이벤트와 Consumer 중단 상황에서 외부 API 중복 호출을 막는 방법 |
+| [Outbox/Kafka 운영 조회와 모니터링](EVENT_OPERATIONS_MONITORING.md) | 관리자 API와 Prometheus 메트릭으로 이벤트 처리 상태를 관찰하는 방법 |
 | [API 검증 오류 응답 설계](VALIDATION_ERROR_RESPONSE.md) | `data.errors[]` 구조로 검증 실패를 일관되게 반환하는 방법 |
 
 ---
@@ -29,19 +33,12 @@
 
 ---
 
-## 아직 문서화하면 좋은 후속 주제
-
-다음 기능이 구현되면 별도 문서로 추가한다.
-
-| 예정 문서 | 연결 이슈 |
-| --- | --- |
-| 외부 주문 데이터 Mock API 동기 전송 전략 | #18 |
-| Transactional Outbox 설계 | #19 |
-| Kafka 기반 주문 이벤트 비동기 전송 전략 | #20 |
-| 핵심 트랜잭션 및 외부 연동 통합 테스트 전략 | #21 |
-
----
-
 ## 기존 Wiki 문서
 
 - [요구사항 분석 및 핵심 기능 정의](1.-요구사항-분석-및-핵심-기능-정의)
+
+---
+
+## 함께 보면 좋은 운영 문서
+
+- [트러블슈팅 인덱스](../troubleshooting/README.md)

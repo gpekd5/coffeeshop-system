@@ -1,0 +1,6 @@
+### Health check
+GET {{baseUrl}}/actuator/health
+
+### Prometheus metrics
+GET {{baseUrl}}/actuator/prometheus
+

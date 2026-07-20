@@ -1,0 +1,21 @@
+### Reissue USER tokens
+POST {{baseUrl}}/api/v1/auth/reissue
+Content-Type: application/json
+
+{
+  "refreshToken": "{{userRefreshToken}}"
+}
+
+> {%
+client.global.set("userAccessToken", response.body.data.accessToken);
+client.global.set("userRefreshToken", response.body.data.refreshToken);
+%}
+
+### Logout USER
+POST {{baseUrl}}/api/v1/auth/logout
+Authorization: Bearer {{userAccessToken}}
+
+### Logout ADMIN
+POST {{baseUrl}}/api/v1/auth/logout
+Authorization: Bearer {{adminAccessToken}}
+
