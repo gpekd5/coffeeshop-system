@@ -141,6 +141,61 @@ OrderControllerIntegrationTest
 
 ---
 
+## 실제 적용 코드
+
+### 적용 파일 경로
+
+| 파일 | 역할 |
+| --- | --- |
+| `src/main/java/com/example/coffeeorder/order/service/OrderTransactionService.java` | 주문 트랜잭션 중 포인트 잠금 획득과 차감 |
+| `src/main/java/com/example/coffeeorder/point/repository/PointRepository.java` | 회원 포인트 행 비관적 쓰기 잠금 |
+| `src/main/java/com/example/coffeeorder/point/entity/Point.java` | 잔액 부족 검증과 차감 규칙 |
+
+### 호출 흐름
+
+```text
+OrderTransactionService.createOrder()
+→ 장바구니 잠금
+→ 메뉴 ID 오름차순 잠금
+→ PointRepository.findByMemberIdForUpdate()
+→ Point.use(totalAmount)
+→ 주문/결제/이력 저장
+→ Commit
+```
+
+### 핵심 코드만 짧게 발췌
+
+```java
+@Lock(LockModeType.PESSIMISTIC_WRITE)
+@Query("""
+        select p
+        from Point p
+        join fetch p.member
+        where p.member.id = :memberId
+        """)
+Optional<Point> findByMemberIdForUpdate(@Param("memberId") Long memberId);
+```
+
+```java
+Point point = findPointForUpdate(memberId);
+point.use(totalAmount);
+```
+
+```java
+public void use(long amount) {
+    if (balance < amount) {
+        throw new BusinessException(ErrorCode.POINT_NOT_ENOUGH);
+    }
+    this.balance -= amount;
+}
+```
+
+### 이 코드가 해당 개념을 구현하는 이유
+
+동일 회원의 주문 요청은 같은 `points` 행을 잠그므로 한 요청이 Commit 또는 Rollback될 때까지 다음 요청이 잔액을 읽고 차감하지 못한다. 두 번째 요청은 첫 번째 요청의 차감 결과가 반영된 잔액을 기준으로 `Point.use()`를 실행하므로 포인트가 음수가 되는 중복 차감을 막을 수 있다.
+
+---
+
 ## 9. 한계와 개선 방향
 
 트래픽이 증가하면 같은 회원의 주문 요청은 포인트 행 하나에서 병목이 생길 수 있다.

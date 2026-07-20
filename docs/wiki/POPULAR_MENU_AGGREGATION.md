@@ -158,6 +158,58 @@ GET /api/v1/menus/popular
 
 ---
 
+## 실제 적용 코드
+
+### 적용 파일 경로
+
+| 파일 | 역할 |
+| --- | --- |
+| `src/main/java/com/example/coffeeorder/menu/controller/MenuController.java` | `/api/v1/menus/popular` API 진입점 |
+| `src/main/java/com/example/coffeeorder/menu/service/MenuService.java` | 최근 7일 범위 계산과 Top 3 제한 |
+| `src/main/java/com/example/coffeeorder/order/repository/OrderItemRepository.java` | 완료 주문 기준 인기 메뉴 집계 쿼리 |
+| `src/main/java/com/example/coffeeorder/order/repository/projection/PopularMenuAggregation.java` | 집계 결과 Projection |
+
+### 호출 흐름
+
+```text
+GET /api/v1/menus/popular
+→ MenuController.getPopularMenus()
+→ MenuService.getPopularMenus()
+→ 최근 7일 시작/종료 시각 계산
+→ OrderItemRepository.findPopularMenus()
+→ PopularMenuResponse rank 부여
+```
+
+### 핵심 코드만 짧게 발췌
+
+```java
+LocalDateTime endDateTime = LocalDateTime.now(clock);
+LocalDateTime startDateTime = endDateTime.minusDays(POPULAR_MENU_DAYS);
+
+orderItemRepository.findPopularMenus(
+        OrderStatus.COMPLETED,
+        startDateTime,
+        endDateTime,
+        PageRequest.of(0, POPULAR_MENU_LIMIT)
+);
+```
+
+```java
+count(distinct o.id),
+max(o.orderedAt)
+...
+where o.status = :status
+  and o.orderedAt >= :startDateTime
+  and o.orderedAt <= :endDateTime
+order by count(distinct o.id) desc, max(o.orderedAt) desc, m.id asc
+```
+
+### 이 코드가 해당 개념을 구현하는 이유
+
+집계 기준을 `OrderStatus.COMPLETED`와 최근 7일 시간 범위로 제한하고, `count(distinct o.id)`로 수량 합계가 아닌 "메뉴가 포함된 주문 수"를 계산한다. `PageRequest.of(0, 3)`으로 Top 3만 가져오며, 정렬 조건은 주문 횟수, 최근 주문 시각, 메뉴 ID 순서를 그대로 코드에 반영한다.
+
+---
+
 ## 9. 한계와 개선 방향
 
 현재는 API 요청마다 DB 집계 쿼리를 실행한다.

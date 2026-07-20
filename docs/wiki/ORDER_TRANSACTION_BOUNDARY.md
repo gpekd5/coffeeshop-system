@@ -105,6 +105,70 @@ OrderController
 
 ---
 
+## 실제 적용 코드
+
+### 적용 파일 경로
+
+| 파일 | 역할 |
+| --- | --- |
+| `src/main/java/com/example/coffeeorder/order/controller/OrderController.java` | 주문 API 진입점, 인증 사용자와 `Idempotency-Key` 전달 |
+| `src/main/java/com/example/coffeeorder/order/facade/OrderFacade.java` | 주문 트랜잭션 호출과 외부 이벤트 전송 분기 |
+| `src/main/java/com/example/coffeeorder/order/service/OrderTransactionService.java` | 주문, 결제, 포인트, 장바구니 삭제, Outbox 저장을 하나의 트랜잭션으로 처리 |
+| `src/main/java/com/example/coffeeorder/cart/repository/CartRepository.java` | 장바구니 비관적 쓰기 잠금 |
+| `src/main/java/com/example/coffeeorder/menu/repository/MenuRepository.java` | 메뉴 비관적 읽기 잠금과 메뉴 ID 오름차순 조회 |
+| `src/main/java/com/example/coffeeorder/point/repository/PointRepository.java` | 포인트 비관적 쓰기 잠금 |
+
+### 호출 흐름
+
+```text
+POST /api/v1/orders
+→ OrderController.createOrder()
+→ OrderFacade.createOrder()
+→ OrderTransactionService.createOrder()
+→ 장바구니 잠금
+→ 메뉴 잠금
+→ 포인트 잠금과 차감
+→ 주문/주문항목/결제/포인트이력 저장
+→ 장바구니 삭제
+→ Outbox Event 저장
+→ Commit
+```
+
+### 핵심 코드만 짧게 발췌
+
+```java
+@Transactional
+public OrderCreateResult createOrder(Long memberId, String idempotencyKey, boolean saveOutboxEvent) {
+    Cart cart = findCartForUpdate(memberId);
+    Map<Long, Menu> menusById = findMenusForOrder(menuIds);
+    Point point = findPointForUpdate(memberId);
+
+    point.use(totalAmount);
+    Order order = orderRepository.saveAndFlush(Order.completeWebCartOrder(...));
+    Payment payment = paymentRepository.saveAndFlush(Payment.completePointPayment(...));
+    pointHistoryRepository.saveAndFlush(PointHistory.use(...));
+    cartItemRepository.deleteAllByCart_Id(cart.getId());
+
+    if (saveOutboxEvent) {
+        outboxEventService.saveOrderCompletedEvent(memberId, response, now);
+    }
+}
+```
+
+```java
+@Lock(LockModeType.PESSIMISTIC_WRITE)
+Optional<Cart> findByMemberIdForUpdate(@Param("memberId") Long memberId);
+
+@Lock(LockModeType.PESSIMISTIC_WRITE)
+Optional<Point> findByMemberIdForUpdate(@Param("memberId") Long memberId);
+```
+
+### 이 코드가 해당 개념을 구현하는 이유
+
+`OrderTransactionService.createOrder()`가 `@Transactional` 안에서 주문에 필요한 DB 변경을 모두 실행한다. 중간에 포인트 부족, 메뉴 판매 중지, Outbox 저장 실패 같은 예외가 발생하면 Spring 트랜잭션이 전체 작업을 Rollback하므로 포인트만 차감되거나 결제 없는 주문이 남는 상태를 막는다. 외부 API 호출은 `OrderFacade`에서 트랜잭션 결과를 받은 뒤 별도로 분기하므로 DB Lock을 네트워크 호출 시간만큼 붙잡지 않는다.
+
+---
+
 ## 7. 한계와 개선 방향
 
 현재 구조는 DB 정합성에 집중한다.
