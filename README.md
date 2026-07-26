@@ -64,6 +64,24 @@ Spring Boot 기반 커피 주문 시스템입니다.
 
 ---
 
+## 빠른 코드 탐색
+
+프로젝트를 빠르게 볼 때는 아래 파일을 시작점으로 따라가면 핵심 설계가 코드에서 어떻게 구현됐는지 확인할 수 있습니다.
+
+| 확인할 개념 | 먼저 볼 코드 | 상세 문서 |
+| --- | --- | --- |
+| 주문 요청 진입과 인증 사용자 사용 | [`OrderController`](./src/main/java/com/example/coffeeorder/order/controller/OrderController.java) | [주문 트랜잭션 경계](./docs/wiki/ORDER_TRANSACTION_BOUNDARY.md) |
+| 주문 Use Case 조합과 외부 호출 분리 | [`OrderFacade`](./src/main/java/com/example/coffeeorder/order/facade/OrderFacade.java) | [외부 API 장애 처리](./docs/wiki/EXTERNAL_ORDER_EVENT_AND_MOCK_API.md) |
+| 주문/결제/포인트/Outbox 원자성 | [`OrderTransactionService`](./src/main/java/com/example/coffeeorder/order/service/OrderTransactionService.java) | [Transactional Outbox](./docs/wiki/TRANSACTIONAL_OUTBOX.md) |
+| 포인트 초과 사용 방지 | [`PointRepository`](./src/main/java/com/example/coffeeorder/point/repository/PointRepository.java) | [포인트 동시성 제어](./docs/wiki/POINT_CONCURRENCY_CONTROL.md) |
+| 주문 재시도와 중복 주문 방지 | [`OrderRepository`](./src/main/java/com/example/coffeeorder/order/repository/OrderRepository.java) | [주문 멱등성](./docs/wiki/ORDER_IDEMPOTENCY.md) |
+| Redis 기반 토큰 상태 관리 | [`RedisTokenStore`](./src/main/java/com/example/coffeeorder/common/security/RedisTokenStore.java) | [Redis 토큰 상태 관리](./docs/wiki/REDIS_TOKEN_STATE_MANAGEMENT.md) |
+| Kafka 발행과 Consumer 멱등성 | [`OutboxPublisherService`](./src/main/java/com/example/coffeeorder/event/kafka/publisher/OutboxPublisherService.java), [`OrderCompletedEventConsumer`](./src/main/java/com/example/coffeeorder/event/kafka/consumer/OrderCompletedEventConsumer.java) | [Kafka Consumer 멱등성](./docs/wiki/KAFKA_CONSUMER_IDEMPOTENCY.md) |
+| 운영 조회와 메트릭 | [`EventMonitoringMeterBinder`](./src/main/java/com/example/coffeeorder/event/metrics/EventMonitoringMeterBinder.java) | [이벤트 운영 모니터링](./docs/wiki/EVENT_OPERATIONS_MONITORING.md) |
+| 검증 실패 응답 형식 | [`GlobalExceptionHandler`](./src/main/java/com/example/coffeeorder/common/exception/GlobalExceptionHandler.java) | [API 검증 오류 응답](./docs/wiki/VALIDATION_ERROR_RESPONSE.md) |
+
+---
+
 ## 프로그램 환경사항
 
 ### 필수
