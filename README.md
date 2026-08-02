@@ -225,7 +225,7 @@ Redis 통합 테스트는 실제 Redis가 없으면 JUnit Assumption으로 건�
 
 ## 성능 테스트
 
-주문 완료 이벤트 전송 방식별 성능 비교는 [주문 이벤트 전송 방식 성능 비교](./docs/performance/ORDER_EVENT_DELIVERY_PERFORMANCE_TEST.md)를 참고합니다.
+주문 완료 이벤트 전송 방식별 성능 비교는 [성능 테스트 학습 가이드](./docs/performance/README.md)를 참고합니다.
 
 | 모드 | 설명 |
 | --- | --- |
@@ -248,7 +248,7 @@ Redis 통합 테스트는 실제 Redis가 없으면 JUnit Assumption으로 건�
 | [테스트 전략](./docs/TEST_STRATEGY.md) | 테스트 범위와 검증 기준 |
 | [기술 학습 문서](./docs/wiki/Home.md) | 핵심 기술 주제별 설명 |
 | [트러블슈팅](./docs/troubleshooting/README.md) | 장애 증상별 확인 지점과 대응 방법 |
-| [성능 테스트](./docs/performance/ORDER_EVENT_DELIVERY_PERFORMANCE_TEST.md) | Sync vs Outbox/Kafka 주문 응답시간 비교 |
+| [성능 테스트](./docs/performance/README.md) | Sync vs Outbox/Kafka 주문 응답시간 비교 |
 
 ---
 
