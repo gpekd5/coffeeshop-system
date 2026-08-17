@@ -181,9 +181,8 @@
 프로젝트 코드와 직접 연결되는 설계 문서는 저장소의 `docs` 폴더에서 관리한다.
 
 - 비즈니스 정책: `docs/BUSINESS_RULES.md`
-- API 명세: `docs/API_SPEC.md`
+- API 명세 및 인증/권한 정책: `docs/API_SPEC.md`
 - 데이터 모델: `docs/ERD.md`
-- 인증 및 보안: `docs/SECURITY_ARCHITECTURE.md`
-- 동시성 및 트랜잭션: `docs/ARCHITECTURE.md`
-- 패키지 구조: `docs/PACKAGE_STRUCTURE.md`
+- 아키텍처, 패키지 구조, 동시성 및 트랜잭션: `docs/ARCHITECTURE.md`
+- 코드 작성 규칙: `docs/CODE_CONVENTION.md`
 - 테스트 계획: `docs/TEST_STRATEGY.md`
