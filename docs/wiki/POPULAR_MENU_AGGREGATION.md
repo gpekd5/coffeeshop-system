@@ -81,7 +81,7 @@ count(distinct o.id)
 ```text
 GET /api/v1/menus/popular
 → MenuController
-→ MenuService
+→ PopularMenuService
 → 현재 시각 계산
 → 시작 시각 = 현재 시각 - 7일
 → OrderItemRepository 집계 쿼리
@@ -101,7 +101,7 @@ GET /api/v1/menus/popular
 | 코드 | 역할 |
 | --- | --- |
 | `src/main/java/com/example/coffeeorder/menu/controller/MenuController.java` | `/api/v1/menus/popular` API |
-| `src/main/java/com/example/coffeeorder/menu/service/MenuService.java` | 최근 7일 범위 계산, rank 부여 |
+| `src/main/java/com/example/coffeeorder/menu/service/PopularMenuService.java` | 최근 7일 범위 계산, rank 부여 |
 | `src/main/java/com/example/coffeeorder/order/repository/OrderItemRepository.java` | 인기 메뉴 집계 쿼리 |
 | `src/main/java/com/example/coffeeorder/order/repository/projection/PopularMenuAggregation.java` | 집계 쿼리 결과 |
 | `src/main/java/com/example/coffeeorder/menu/dto/response/PopularMenuResponse.java` | API 응답 DTO |
@@ -165,7 +165,7 @@ GET /api/v1/menus/popular
 | 파일 | 역할 |
 | --- | --- |
 | `src/main/java/com/example/coffeeorder/menu/controller/MenuController.java` | `/api/v1/menus/popular` API 진입점 |
-| `src/main/java/com/example/coffeeorder/menu/service/MenuService.java` | 최근 7일 범위 계산과 Top 3 제한 |
+| `src/main/java/com/example/coffeeorder/menu/service/PopularMenuService.java` | 최근 7일 범위 계산과 Top 3 제한 |
 | `src/main/java/com/example/coffeeorder/order/repository/OrderItemRepository.java` | 완료 주문 기준 인기 메뉴 집계 쿼리 |
 | `src/main/java/com/example/coffeeorder/order/repository/projection/PopularMenuAggregation.java` | 집계 결과 Projection |
 
@@ -174,7 +174,7 @@ GET /api/v1/menus/popular
 ```text
 GET /api/v1/menus/popular
 → MenuController.getPopularMenus()
-→ MenuService.getPopularMenus()
+→ PopularMenuService.getPopularMenus()
 → 최근 7일 시작/종료 시각 계산
 → OrderItemRepository.findPopularMenus()
 → PopularMenuResponse rank 부여

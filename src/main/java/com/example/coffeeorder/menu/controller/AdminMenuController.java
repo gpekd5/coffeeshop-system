@@ -6,7 +6,7 @@ import com.example.coffeeorder.menu.dto.request.MenuStatusUpdateRequest;
 import com.example.coffeeorder.menu.dto.request.MenuUpdateRequest;
 import com.example.coffeeorder.menu.dto.response.MenuResponse;
 import com.example.coffeeorder.menu.dto.response.MenuStatusResponse;
-import com.example.coffeeorder.menu.service.MenuService;
+import com.example.coffeeorder.menu.service.MenuCommandService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,17 +22,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/admin/menus")
 public class AdminMenuController {
 
-    private final MenuService menuService;
+    private final MenuCommandService menuCommandService;
 
-    public AdminMenuController(MenuService menuService) {
-        this.menuService = menuService;
+    public AdminMenuController(MenuCommandService menuCommandService) {
+        this.menuCommandService = menuCommandService;
     }
 
     @PostMapping
     public ResponseEntity<ApiResponse<MenuResponse>> createMenu(
             @Valid @RequestBody MenuCreateRequest request
     ) {
-        MenuResponse response = menuService.createMenu(request);
+        MenuResponse response = menuCommandService.createMenu(request);
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(
@@ -48,7 +48,7 @@ public class AdminMenuController {
             @PathVariable Long menuId,
             @Valid @RequestBody MenuUpdateRequest request
     ) {
-        MenuResponse response = menuService.updateMenu(
+        MenuResponse response = menuCommandService.updateMenu(
                 menuId,
                 request
         );
@@ -66,7 +66,7 @@ public class AdminMenuController {
             @PathVariable Long menuId,
             @Valid @RequestBody MenuStatusUpdateRequest request
     ) {
-        MenuStatusResponse response = menuService.updateMenuStatus(
+        MenuStatusResponse response = menuCommandService.updateMenuStatus(
                 menuId,
                 request
         );
@@ -83,7 +83,7 @@ public class AdminMenuController {
     public ResponseEntity<ApiResponse<Void>> deleteMenu(
             @PathVariable Long menuId
     ) {
-        menuService.deleteMenu(menuId);
+        menuCommandService.deleteMenu(menuId);
 
         return ResponseEntity.ok(
                 ApiResponse.success(
