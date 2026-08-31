@@ -6,7 +6,8 @@ import com.example.coffeeorder.common.response.ApiResponse;
 import com.example.coffeeorder.common.response.PageResponse;
 import com.example.coffeeorder.menu.dto.response.MenuResponse;
 import com.example.coffeeorder.menu.dto.response.PopularMenuResponse;
-import com.example.coffeeorder.menu.service.MenuService;
+import com.example.coffeeorder.menu.service.MenuQueryService;
+import com.example.coffeeorder.menu.service.PopularMenuService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,15 +19,20 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/menus")
 public class MenuController {
 
-    private final MenuService menuService;
+    private final MenuQueryService menuQueryService;
+    private final PopularMenuService popularMenuService;
 
-    public MenuController(MenuService menuService) {
-        this.menuService = menuService;
+    public MenuController(
+            MenuQueryService menuQueryService,
+            PopularMenuService popularMenuService
+    ) {
+        this.menuQueryService = menuQueryService;
+        this.popularMenuService = popularMenuService;
     }
 
     @GetMapping("/popular")
     public ResponseEntity<ApiResponse<List<PopularMenuResponse>>> getPopularMenus() {
-        List<PopularMenuResponse> response = menuService.getPopularMenus();
+        List<PopularMenuResponse> response = popularMenuService.getPopularMenus();
 
         return ResponseEntity.ok(
                 ApiResponse.success(
@@ -45,7 +51,7 @@ public class MenuController {
             @RequestParam(required = false) String size,
             @RequestParam(required = false) String sort
     ) {
-        PageResponse<MenuResponse> response = menuService.getMenus(
+        PageResponse<MenuResponse> response = menuQueryService.getMenus(
                 category,
                 status,
                 keyword,
@@ -66,7 +72,7 @@ public class MenuController {
     public ResponseEntity<ApiResponse<MenuResponse>> getMenu(
             @PathVariable Long menuId
     ) {
-        MenuResponse response = menuService.getMenu(menuId);
+        MenuResponse response = menuQueryService.getMenu(menuId);
 
         return ResponseEntity.ok(
                 ApiResponse.success(

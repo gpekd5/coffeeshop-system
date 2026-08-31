@@ -192,7 +192,7 @@ public ResponseEntity<ApiResponse<Void>> deleteMenu(...)
 public ResponseEntity<ApiResponse<MenuResponse>> getMenu(
         @PathVariable Long menuId
 ) {
-    MenuResponse response = menuService.getMenu(menuId);
+    MenuResponse response = menuQueryService.getMenu(menuId);
 
     return ResponseEntity.ok(
             ApiResponse.success(
@@ -213,7 +213,7 @@ public ResponseEntity<ApiResponse<MenuResponse>> getMenu(
 @GetMapping("/popular")
 public ResponseEntity<ApiResponse<List<PopularMenuResponse>>> getPopularMenus() {
     List<PopularMenuResponse> response =
-            menuService.getPopularMenus();
+            popularMenuService.getPopularMenus();
 
     return ResponseEntity.ok(
             ApiResponse.success(
@@ -236,7 +236,7 @@ public ResponseEntity<ApiResponse<PageResponse<MenuResponse>>> getMenus(
         ) Pageable pageable
 ) {
     PageResponse<MenuResponse> response =
-            menuService.getMenus(pageable);
+            menuQueryService.getMenus(pageable);
 
     return ResponseEntity.ok(
             ApiResponse.success(
@@ -259,7 +259,7 @@ public ResponseEntity<ApiResponse<MenuResponse>> createMenu(
         @Valid @RequestBody MenuCreateRequest request
 ) {
     MenuResponse response =
-            menuService.createMenu(request);
+            menuCommandService.createMenu(request);
 
     return ResponseEntity.status(HttpStatus.CREATED)
             .body(
@@ -284,7 +284,7 @@ public ResponseEntity<ApiResponse<MenuResponse>> updateMenu(
         @Valid @RequestBody MenuUpdateRequest request
 ) {
     MenuResponse response =
-            menuService.updateMenu(menuId, request);
+            menuCommandService.updateMenu(menuId, request);
 
     return ResponseEntity.ok(
             ApiResponse.success(
@@ -306,7 +306,7 @@ public ResponseEntity<ApiResponse<MenuResponse>> updateMenu(
 public ResponseEntity<ApiResponse<Void>> deleteMenu(
         @PathVariable Long menuId
 ) {
-    menuService.deleteMenu(menuId);
+    menuCommandService.deleteMenu(menuId);
 
     return ResponseEntity.ok(
             ApiResponse.success(
@@ -375,7 +375,7 @@ public ResponseEntity<ApiResponse<MenuResponse>> getMenu(
             authMember == null ? null : authMember.memberId();
 
     MenuResponse response =
-            menuService.getMenu(menuId, memberId);
+            menuQueryService.getMenu(menuId, memberId);
 
     return ResponseEntity.ok(
             ApiResponse.success(
@@ -823,7 +823,9 @@ Service는 하나의 도메인 기능을 처리한다.
 
 ```text
 MemberService
-MenuService
+MenuQueryService
+MenuCommandService
+PopularMenuService
 CartService
 PointService
 PaymentService
