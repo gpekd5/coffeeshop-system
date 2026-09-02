@@ -2,9 +2,9 @@ package com.example.coffeeorder.event.outbox.service;
 
 import java.util.Map;
 
-import com.example.coffeeorder.common.exception.BusinessException;
 import com.example.coffeeorder.common.exception.ErrorCode;
 import com.example.coffeeorder.common.response.PageResponse;
+import com.example.coffeeorder.common.util.EnumRequestParser;
 import com.example.coffeeorder.common.util.PageRequestFactory;
 import com.example.coffeeorder.event.outbox.dto.response.OutboxEventResponse;
 import com.example.coffeeorder.event.outbox.entity.OutboxEvent;
@@ -55,7 +55,11 @@ public class OutboxEventQueryService {
             String size,
             String sort
     ) {
-        OutboxStatus outboxStatus = parseStatus(status);
+        OutboxStatus outboxStatus = EnumRequestParser.parseOptional(
+                status,
+                OutboxStatus.class,
+                ErrorCode.INVALID_OUTBOX_STATUS
+        );
         PageRequest pageRequest = PageRequestFactory.create(
                 page,
                 size,
@@ -71,22 +75,6 @@ public class OutboxEventQueryService {
                 );
 
         return PageResponse.from(events.map(OutboxEventResponse::from));
-    }
-
-    private OutboxStatus parseStatus(String status) {
-        if (status == null) {
-            return null;
-        }
-
-        if (status.isBlank()) {
-            throw new BusinessException(ErrorCode.INVALID_OUTBOX_STATUS);
-        }
-
-        try {
-            return OutboxStatus.valueOf(status.trim());
-        } catch (IllegalArgumentException exception) {
-            throw new BusinessException(ErrorCode.INVALID_OUTBOX_STATUS);
-        }
     }
 
 }

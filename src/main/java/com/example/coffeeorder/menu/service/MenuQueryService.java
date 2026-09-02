@@ -5,6 +5,7 @@ import java.util.Map;
 import com.example.coffeeorder.common.exception.BusinessException;
 import com.example.coffeeorder.common.exception.ErrorCode;
 import com.example.coffeeorder.common.response.PageResponse;
+import com.example.coffeeorder.common.util.EnumRequestParser;
 import com.example.coffeeorder.common.util.PageRequestFactory;
 import com.example.coffeeorder.menu.dto.response.MenuResponse;
 import com.example.coffeeorder.menu.entity.Menu;
@@ -53,8 +54,17 @@ public class MenuQueryService {
             String size,
             String sort
     ) {
-        MenuCategory menuCategory = MenuRequestParser.parseOptionalCategory(category);
-        MenuStatus menuStatus = MenuRequestParser.parseStatusOrDefault(status);
+        MenuCategory menuCategory = EnumRequestParser.parseOptional(
+                category,
+                MenuCategory.class,
+                ErrorCode.INVALID_MENU_CATEGORY
+        );
+        MenuStatus menuStatus = EnumRequestParser.parseOptionalOrDefault(
+                status,
+                MenuStatus.class,
+                MenuStatus.ON_SALE,
+                ErrorCode.INVALID_MENU_STATUS
+        );
         PageRequest pageRequest = PageRequestFactory.create(
                 page,
                 size,
