@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 import com.example.coffeeorder.common.exception.BusinessException;
 import com.example.coffeeorder.common.exception.ErrorCode;
 import com.example.coffeeorder.common.response.PageResponse;
+import com.example.coffeeorder.common.util.EnumRequestParser;
 import com.example.coffeeorder.common.util.PageRequestFactory;
 import com.example.coffeeorder.order.dto.response.AdminOrderDetailResponse;
 import com.example.coffeeorder.order.dto.response.AdminOrderSummaryResponse;
@@ -74,7 +75,11 @@ public class OrderQueryService {
             String size,
             String sort
     ) {
-        OrderStatus orderStatus = parseStatus(status);
+        OrderStatus orderStatus = EnumRequestParser.parseOptional(
+                status,
+                OrderStatus.class,
+                ErrorCode.INVALID_ORDER_STATUS
+        );
         PageRequest pageRequest = PageRequestFactory.create(
                 page,
                 size,
@@ -147,8 +152,16 @@ public class OrderQueryService {
         Page<AdminOrderSummaryResponse> orders = orderRepository.findAll(
                         OrderSpecifications.adminSearch(
                                 parseMemberId(memberId),
-                                parseStatus(status),
-                                parseOrderChannel(orderChannel),
+                                EnumRequestParser.parseOptional(
+                                        status,
+                                        OrderStatus.class,
+                                        ErrorCode.INVALID_ORDER_STATUS
+                                ),
+                                EnumRequestParser.parseOptional(
+                                        orderChannel,
+                                        OrderChannel.class,
+                                        ErrorCode.INVALID_ORDER_CHANNEL
+                                ),
                                 parsedStartDateTime,
                                 parsedEndDateTime
                         ),
@@ -205,38 +218,6 @@ public class OrderQueryService {
                         LinkedHashMap::new,
                         Collectors.toList()
                 ));
-    }
-
-    private OrderStatus parseStatus(String status) {
-        if (status == null) {
-            return null;
-        }
-
-        if (status.isBlank()) {
-            throw new BusinessException(ErrorCode.INVALID_ORDER_STATUS);
-        }
-
-        try {
-            return OrderStatus.valueOf(status.trim());
-        } catch (IllegalArgumentException exception) {
-            throw new BusinessException(ErrorCode.INVALID_ORDER_STATUS);
-        }
-    }
-
-    private OrderChannel parseOrderChannel(String orderChannel) {
-        if (orderChannel == null) {
-            return null;
-        }
-
-        if (orderChannel.isBlank()) {
-            throw new BusinessException(ErrorCode.INVALID_ORDER_CHANNEL);
-        }
-
-        try {
-            return OrderChannel.valueOf(orderChannel.trim());
-        } catch (IllegalArgumentException exception) {
-            throw new BusinessException(ErrorCode.INVALID_ORDER_CHANNEL);
-        }
     }
 
     private Long parseMemberId(String memberId) {

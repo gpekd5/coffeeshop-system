@@ -2,9 +2,9 @@ package com.example.coffeeorder.event.kafka.consumer.service;
 
 import java.util.Map;
 
-import com.example.coffeeorder.common.exception.BusinessException;
 import com.example.coffeeorder.common.exception.ErrorCode;
 import com.example.coffeeorder.common.response.PageResponse;
+import com.example.coffeeorder.common.util.EnumRequestParser;
 import com.example.coffeeorder.common.util.PageRequestFactory;
 import com.example.coffeeorder.event.kafka.consumer.dto.response.ProcessedKafkaEventResponse;
 import com.example.coffeeorder.event.kafka.consumer.entity.KafkaEventProcessingStatus;
@@ -81,7 +81,11 @@ public class ProcessedKafkaEventQueryService {
             String size,
             String sort
     ) {
-        KafkaEventProcessingStatus processingStatus = parseStatus(status);
+        KafkaEventProcessingStatus processingStatus = EnumRequestParser.parseOptional(
+                status,
+                KafkaEventProcessingStatus.class,
+                ErrorCode.INVALID_KAFKA_EVENT_PROCESSING_STATUS
+        );
         PageRequest pageRequest = PageRequestFactory.create(
                 page,
                 size,
@@ -97,26 +101,6 @@ public class ProcessedKafkaEventQueryService {
                 );
 
         return PageResponse.from(events.map(ProcessedKafkaEventResponse::from));
-    }
-
-    private KafkaEventProcessingStatus parseStatus(String status) {
-        if (status == null) {
-            return null;
-        }
-
-        if (status.isBlank()) {
-            throw new BusinessException(
-                    ErrorCode.INVALID_KAFKA_EVENT_PROCESSING_STATUS
-            );
-        }
-
-        try {
-            return KafkaEventProcessingStatus.valueOf(status.trim());
-        } catch (IllegalArgumentException exception) {
-            throw new BusinessException(
-                    ErrorCode.INVALID_KAFKA_EVENT_PROCESSING_STATUS
-            );
-        }
     }
 
 }

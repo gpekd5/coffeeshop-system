@@ -5,6 +5,7 @@ import java.util.Map;
 import com.example.coffeeorder.common.exception.BusinessException;
 import com.example.coffeeorder.common.exception.ErrorCode;
 import com.example.coffeeorder.common.response.PageResponse;
+import com.example.coffeeorder.common.util.EnumRequestParser;
 import com.example.coffeeorder.common.util.PageRequestFactory;
 import com.example.coffeeorder.point.dto.request.PointChargeRequest;
 import com.example.coffeeorder.point.dto.response.PointBalanceResponse;
@@ -90,7 +91,11 @@ public class PointService {
             String size,
             String sort
     ) {
-        PointHistoryType historyType = parseType(type);
+        PointHistoryType historyType = EnumRequestParser.parseOptional(
+                type,
+                PointHistoryType.class,
+                ErrorCode.INVALID_POINT_HISTORY_TYPE
+        );
         PageRequest pageRequest = PageRequestFactory.create(
                 page,
                 size,
@@ -146,22 +151,6 @@ public class PointService {
         }
 
         return amount;
-    }
-
-    private PointHistoryType parseType(String type) {
-        if (type == null) {
-            return null;
-        }
-
-        if (type.isBlank()) {
-            throw new BusinessException(ErrorCode.INVALID_POINT_HISTORY_TYPE);
-        }
-
-        try {
-            return PointHistoryType.valueOf(type.trim());
-        } catch (IllegalArgumentException exception) {
-            throw new BusinessException(ErrorCode.INVALID_POINT_HISTORY_TYPE);
-        }
     }
 
 }
