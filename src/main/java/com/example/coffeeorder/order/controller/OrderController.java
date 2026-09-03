@@ -9,7 +9,7 @@ import com.example.coffeeorder.order.dto.response.OrderCreateResponse;
 import com.example.coffeeorder.order.dto.response.OrderDetailResponse;
 import com.example.coffeeorder.order.dto.response.OrderSummaryResponse;
 import com.example.coffeeorder.order.facade.OrderFacade;
-import com.example.coffeeorder.order.service.OrderQueryService;
+import com.example.coffeeorder.order.service.UserOrderQueryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,14 +25,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderController {
 
     private final OrderFacade orderFacade;
-    private final OrderQueryService orderQueryService;
+    private final UserOrderQueryService userOrderQueryService;
 
     public OrderController(
             OrderFacade orderFacade,
-            OrderQueryService orderQueryService
+            UserOrderQueryService userOrderQueryService
     ) {
         this.orderFacade = orderFacade;
-        this.orderQueryService = orderQueryService;
+        this.userOrderQueryService = userOrderQueryService;
     }
 
     @GetMapping
@@ -44,7 +44,7 @@ public class OrderController {
             @RequestParam(required = false) String sort
     ) {
         PageResponse<OrderSummaryResponse> response =
-                orderQueryService.getMyOrders(
+                userOrderQueryService.getMyOrders(
                         authMember.memberId(),
                         status,
                         page,
@@ -63,7 +63,7 @@ public class OrderController {
             @AuthenticationPrincipal AuthMember authMember,
             @PathVariable Long orderId
     ) {
-        OrderDetailResponse response = orderQueryService.getMyOrder(
+        OrderDetailResponse response = userOrderQueryService.getMyOrder(
                 authMember.memberId(),
                 orderId
         );
