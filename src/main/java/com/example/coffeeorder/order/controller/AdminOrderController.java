@@ -4,7 +4,7 @@ import com.example.coffeeorder.common.response.ApiResponse;
 import com.example.coffeeorder.common.response.PageResponse;
 import com.example.coffeeorder.order.dto.response.AdminOrderDetailResponse;
 import com.example.coffeeorder.order.dto.response.AdminOrderSummaryResponse;
-import com.example.coffeeorder.order.service.OrderQueryService;
+import com.example.coffeeorder.order.service.AdminOrderQueryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,10 +16,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/admin/orders")
 public class AdminOrderController {
 
-    private final OrderQueryService orderQueryService;
+    private final AdminOrderQueryService adminOrderQueryService;
 
-    public AdminOrderController(OrderQueryService orderQueryService) {
-        this.orderQueryService = orderQueryService;
+    public AdminOrderController(AdminOrderQueryService adminOrderQueryService) {
+        this.adminOrderQueryService = adminOrderQueryService;
     }
 
     @GetMapping
@@ -34,7 +34,7 @@ public class AdminOrderController {
             @RequestParam(required = false) String sort
     ) {
         PageResponse<AdminOrderSummaryResponse> response =
-                orderQueryService.getAdminOrders(
+                adminOrderQueryService.getOrders(
                         memberId,
                         status,
                         orderChannel,
@@ -56,7 +56,7 @@ public class AdminOrderController {
             @PathVariable Long orderId
     ) {
         AdminOrderDetailResponse response =
-                orderQueryService.getAdminOrder(orderId);
+                adminOrderQueryService.getOrder(orderId);
 
         return ResponseEntity.ok(ApiResponse.success(
                 "주문 상세 조회에 성공했습니다.",
